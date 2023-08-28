@@ -275,7 +275,11 @@ fun Application.module() {
                         }
 
                         val stream = ByteArrayOutputStream()
-                        bitmap?.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+                        if (file.name.endsWith(".png", true)) {
+                            bitmap?.compress(Bitmap.CompressFormat.PNG, 70, stream)
+                        } else {
+                            bitmap?.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+                        }
                         call.respondBytes(stream.toByteArray())
                         return@get
                     }
@@ -357,8 +361,8 @@ fun Application.module() {
                                 call.respond(HttpStatusCode.BadRequest)
                                 return@forEachPart
                             }
+                            File(dir).mkdirs()
                             val file = File("${dir}/${fileName}")
-                            file.mkdirs()
                             var path = file.toPath()
                             if (!replace && file.exists()) {
                                 val newFile = file.newFile()

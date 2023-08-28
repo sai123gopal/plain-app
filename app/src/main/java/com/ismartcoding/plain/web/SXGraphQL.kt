@@ -19,6 +19,7 @@ import com.ismartcoding.lib.extensions.toAppUrl
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.PhoneHelper
+import com.ismartcoding.lib.isQPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.TempData
@@ -27,6 +28,7 @@ import com.ismartcoding.plain.api.HttpApiTimeout
 import com.ismartcoding.plain.data.UIDataCache
 import com.ismartcoding.plain.data.enums.ActionSourceType
 import com.ismartcoding.plain.data.enums.ActionType
+import com.ismartcoding.plain.data.enums.BucketType
 import com.ismartcoding.plain.data.enums.TagType
 import com.ismartcoding.plain.data.preference.ApiPermissionsPreference
 import com.ismartcoding.plain.data.preference.AudioPlayModePreference
@@ -39,13 +41,11 @@ import com.ismartcoding.plain.data.preference.FileSortByPreference
 import com.ismartcoding.plain.data.preference.ImageSortByPreference
 import com.ismartcoding.plain.data.preference.VideoPlaylistPreference
 import com.ismartcoding.plain.data.preference.VideoSortByPreference
-import com.ismartcoding.plain.data.preference.WebPreference
 import com.ismartcoding.plain.db.AppDatabase
-import com.ismartcoding.plain.db.DMessageContent
+import com.ismartcoding.plain.db.DChat
 import com.ismartcoding.plain.db.DMessageFile
 import com.ismartcoding.plain.db.DMessageFiles
 import com.ismartcoding.plain.db.DMessageImages
-import com.ismartcoding.plain.db.DMessageText
 import com.ismartcoding.plain.db.DMessageType
 import com.ismartcoding.plain.features.AIChatCreatedEvent
 import com.ismartcoding.plain.features.ActionEvent
@@ -68,6 +68,7 @@ import com.ismartcoding.plain.features.feed.FeedEntryHelper
 import com.ismartcoding.plain.features.feed.FeedHelper
 import com.ismartcoding.plain.features.feed.fetchContentAsync
 import com.ismartcoding.plain.features.file.FileSystemHelper
+import com.ismartcoding.plain.data.enums.MediaType
 import com.ismartcoding.plain.features.image.ImageHelper
 import com.ismartcoding.plain.features.note.NoteHelper
 import com.ismartcoding.plain.features.pkg.PackageHelper
@@ -277,6 +278,28 @@ class SXGraphQL(val schema: Schema) {
                         }
                     }
                 }
+                query("mediaBuckets") {
+                    resolver { type: BucketType ->
+                        val context = MainApp.instance
+                        if (Permission.WRITE_EXTERNAL_STORAGE.can(context)) {
+                            if (type == BucketType.IMAGE) {
+                                ImageHelper.getBuckets(context).map { it.toModel() }
+                            } else if (type == BucketType.AUDIO) {
+                                if (isQPlus()) {
+                                    AudioHelper.getBuckets(context).map { it.toModel() }
+                                } else {
+                                    emptyList()
+                                }
+                            } else if (type == BucketType.VIDEO) {
+                                VideoHelper.getBuckets(context).map { it.toModel() }
+                            } else {
+                                emptyList()
+                            }
+                        } else {
+                            emptyList()
+                        }
+                    }
+                }
                 query("videos") {
                     configure {
                         executor = Executor.DataLoaderPrepared
@@ -422,7 +445,12 @@ class SXGraphQL(val schema: Schema) {
                 }
                 query("storageStats") {
                     resolver { ->
-                        StorageStats(FileSystemHelper.getInternalStorageStats().toModel(), FileSystemHelper.getSDCardStorageStats(MainApp.instance)?.toModel())
+                        val context = MainApp.instance
+                        StorageStats(
+                            FileSystemHelper.getInternalStorageStats().toModel(),
+                            FileSystemHelper.getSDCardStorageStats(context).toModel(),
+                            FileSystemHelper.getUSBStorageStats(context).map { it.toModel() }
+                        )
                     }
                 }
                 query("screenMirrorImage") {
@@ -432,8 +460,9 @@ class SXGraphQL(val schema: Schema) {
                 }
                 query("recentFiles") {
                     resolver { ->
-                        Permission.WRITE_EXTERNAL_STORAGE.checkAsync(MainApp.instance)
-                        FileSystemHelper.getRecents(MainApp.instance).map { it.toModel() }
+                        val context = MainApp.instance
+                        Permission.WRITE_EXTERNAL_STORAGE.checkAsync(context)
+                        FileSystemHelper.getRecents(context).map { it.toModel() }
                     }
                 }
                 query("files") {
@@ -543,6 +572,7 @@ class SXGraphQL(val schema: Schema) {
                             AudioPlayingPreference.getValueAsync(context)?.path ?: "",
                             context.allowSensitivePermissions(),
                             sdcardPath = FileSystemHelper.getSDCardPath(context),
+                            usbDiskPaths = FileSystemHelper.getUsbDiskPaths(),
                             internalStoragePath = FileSystemHelper.getInternalStoragePath(context),
                             downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
                         )
@@ -575,12 +605,9 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("createChatItem") {
-                    resolver { message: String ->
+                    resolver { content: String ->
                         val item = ChatHelper.sendAsync(
-                            DMessageContent(
-                                DMessageType.TEXT.value,
-                                DMessageText(message)
-                            )
+                            DChat.parseContent(content)
                         )
                         sendEvent(HttpServerEvents.MessageCreatedEvent(arrayListOf(item)))
                         arrayListOf(item).map { it.toModel() }
@@ -976,6 +1003,7 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 enum<MediaPlayMode>()
+                enum<BucketType>()
                 enum<TagType>()
                 enum<Permission>()
                 stringScalar<Instant> {
@@ -1051,7 +1079,7 @@ class SXGraphQL(val schema: Schema) {
                         } else {
                             val authStr = call.request.header("authorization")?.split(" ")
                             val token = AuthDevTokenPreference.getAsync(MainApp.instance)
-                            if (token.isNotEmpty() || authStr == null || authStr.size != 2 || authStr[1] != token) {
+                            if (token.isEmpty() || authStr?.get(1) != token) {
                                 call.respondText(
                                     """{"errors":[{"message":"Unauthorized"}]}""",
                                     contentType = ContentType.Application.Json

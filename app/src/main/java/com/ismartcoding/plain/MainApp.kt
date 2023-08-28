@@ -10,6 +10,7 @@ import coil.decode.SvgDecoder
 import coil.decode.VideoFrameDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import coil.request.CachePolicy
 import coil.util.DebugLogger
 import com.ismartcoding.lib.brv.utils.BRV
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
@@ -22,6 +23,7 @@ import com.ismartcoding.plain.data.preference.ClientIdPreference
 import com.ismartcoding.plain.data.preference.DarkThemePreference
 import com.ismartcoding.plain.data.preference.FeedAutoRefreshPreference
 import com.ismartcoding.plain.data.preference.HttpPortPreference
+import com.ismartcoding.plain.data.preference.HttpsPortPreference
 import com.ismartcoding.plain.data.preference.KeyStorePasswordPreference
 import com.ismartcoding.plain.data.preference.PasswordTypePreference
 import com.ismartcoding.plain.data.preference.WebPreference
@@ -36,6 +38,7 @@ import io.ktor.server.netty.NettyApplicationEngine
 import kotlinx.coroutines.flow.first
 import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
+
 
 class MainApp : Application(), ImageLoaderFactory {
     var httpServer: NettyApplicationEngine? = null
@@ -60,6 +63,9 @@ class MainApp : Application(), ImageLoaderFactory {
                     .maxSizeBytes(512L * 1024 * 1024) // 512MB
                     .build()
             }
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .networkCachePolicy(CachePolicy.ENABLED)
             .okHttpClient {
                 // Don't limit concurrent network requests by host.
                 val dispatcher = Dispatcher().apply { maxRequestsPerHost = maxRequests }
@@ -97,6 +103,7 @@ class MainApp : Application(), ImageLoaderFactory {
             val preferences = dataStore.data.first()
             TempData.webEnabled = WebPreference.get(preferences)
             TempData.httpPort = HttpPortPreference.get(preferences)
+            TempData.httpsPort = HttpsPortPreference.get(preferences)
             ClientIdPreference.ensureValueAsync(instance, preferences)
             KeyStorePasswordPreference.ensureValueAsync(instance, preferences)
 
