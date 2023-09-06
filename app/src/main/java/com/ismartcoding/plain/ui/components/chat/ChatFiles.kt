@@ -1,6 +1,7 @@
 package com.ismartcoding.plain.ui.components.chat
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import com.ismartcoding.lib.extensions.isImageFast
 import com.ismartcoding.lib.extensions.isPdfFile
 import com.ismartcoding.lib.extensions.isTextFile
 import com.ismartcoding.lib.extensions.isVideoFast
+import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.helpers.FormatHelper
 import com.ismartcoding.plain.Constants
 import com.ismartcoding.plain.R
@@ -42,6 +44,7 @@ import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.ui.models.VChat
 import com.ismartcoding.plain.ui.preview.PreviewDialog
 import com.ismartcoding.plain.ui.preview.PreviewItem
+import java.io.File
 
 @Composable
 fun ChatFiles(context: Context, m: VChat) {
@@ -66,7 +69,7 @@ fun ChatFiles(context: Context, m: VChat) {
                         val items = fileItems
                             .filter { it.uri.isVideoFast() || it.uri.isImageFast() }
                         PreviewDialog().show(
-                            items = items.mapIndexed { i, s -> PreviewItem(m.id + "|" + i, s.uri.getFinalPath(context)) },
+                            items = items.mapIndexed { i, s -> PreviewItem(m.id + "|" + i, s.uri.getFinalPath(context).pathToUri()) },
                             initKey = m.id + "|" + items.indexOf(item),
                         )
                     } else if (path.isAudioFast()) {
@@ -76,12 +79,12 @@ fun ChatFiles(context: Context, m: VChat) {
                         }
                     } else if (path.isTextFile()) {
                         if (item.size <= Constants.MAX_READABLE_TEXT_FILE_SIZE) {
-                            TextEditorDialog(path).show()
+                            TextEditorDialog(Uri.fromFile(File(path))).show()
                         } else {
                             DialogHelper.showMessage(R.string.text_file_size_limit)
                         }
                     } else if (path.isPdfFile()) {
-                        PdfViewerDialog(path).show()
+                        PdfViewerDialog(Uri.fromFile(File(path))).show()
                     }
                 }
             ) {

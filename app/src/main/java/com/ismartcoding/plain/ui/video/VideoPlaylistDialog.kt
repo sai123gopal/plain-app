@@ -1,5 +1,6 @@
 package com.ismartcoding.plain.ui.video
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
@@ -11,6 +12,7 @@ import com.ismartcoding.lib.brv.annotaion.ItemOrientation
 import com.ismartcoding.lib.brv.item.ItemDrag
 import com.ismartcoding.lib.brv.listener.DefaultItemTouchCallback
 import com.ismartcoding.lib.brv.utils.*
+import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.FormatHelper
 import com.ismartcoding.plain.R
@@ -84,7 +86,7 @@ class VideoPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
                 val m = getModel<SortableVideoModel>()
                 val items = getModelList<SortableVideoModel>()
                 PreviewDialog().show(
-                    items = items.map { s -> PreviewItem(s.data.id, s.data.path) },
+                    items = items.map { s -> PreviewItem(s.data.id, s.data.path.pathToUri()) },
                     initKey = m.data.id,
                 )
             }

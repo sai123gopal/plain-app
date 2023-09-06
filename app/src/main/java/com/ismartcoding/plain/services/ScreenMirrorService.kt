@@ -16,7 +16,6 @@ import android.view.OrientationEventListener
 import android.view.Surface
 import androidx.core.graphics.scale
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.lifecycleScope
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.extensions.isPortrait
 import com.ismartcoding.lib.extensions.parcelable
@@ -28,8 +27,6 @@ import com.ismartcoding.plain.helpers.NotificationHelper
 import com.ismartcoding.plain.mediaProjectionManager
 import com.ismartcoding.plain.web.websocket.EventType
 import com.ismartcoding.plain.web.websocket.WebSocketEvent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import java.util.*
 
@@ -39,7 +36,7 @@ class ScreenMirrorService : LifecycleService() {
     private var mScreenDensity = 0
     private var mResultCode = 0
     private var mResultData: Intent? = null
-    var mBitmap: Bitmap? = null
+    private var mBitmap: Bitmap? = null
     private lateinit var orientationEventListener: OrientationEventListener
     private var isPortrait = true
 
@@ -161,6 +158,11 @@ class ScreenMirrorService : LifecycleService() {
             mScreenWidth
         }
         mImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        mMediaProjection?.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                stop()
+            }
+        }, null)
         mVirtualDisplay = mMediaProjection?.createVirtualDisplay(
             "ScreenMirroringService", width, height, mScreenDensity,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,

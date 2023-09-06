@@ -1,6 +1,7 @@
 package com.ismartcoding.plain.ui.components.chat
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import coil.size.Size
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.extensions.getFinalPath
+import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.helpers.FormatHelper
 import com.ismartcoding.plain.db.DMessageImages
 import com.ismartcoding.plain.features.ChatItemClickEvent
@@ -49,7 +51,7 @@ fun ChatImages(context: Context, m: VChat, imageWidthDp: Dp, imageWidthPx: Int) 
                 Box(modifier = Modifier.clickable {
                     sendEvent(ChatItemClickEvent())
                     PreviewDialog().show(
-                        items = imageItems.mapIndexed { i, s -> PreviewItem(m.id + "|" + i, s.uri.getFinalPath(context)) },
+                        items = imageItems.mapIndexed { i, s -> PreviewItem(m.id + "|" + i, s.uri.getFinalPath(context).pathToUri()) },
                         initKey = m.id + "|" + index,
                     )
                 }) {

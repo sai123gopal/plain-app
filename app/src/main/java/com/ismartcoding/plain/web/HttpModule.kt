@@ -10,13 +10,16 @@ import com.ismartcoding.lib.extensions.isImageFast
 import com.ismartcoding.lib.extensions.newFile
 import com.ismartcoding.lib.extensions.parse
 import com.ismartcoding.lib.extensions.scanFileByConnection
+import com.ismartcoding.lib.extensions.toThumbBytesAsync
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.JsonHelper
 import com.ismartcoding.lib.helpers.ZipHelper
+import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.lib.upnp.UPnPController
+import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.data.DownloadFileItem
@@ -102,8 +105,12 @@ fun Application.module() {
     }
 
     install(CORS) {
-        allowHost("localhost:3000")
-        allowHost("127.0.0.1:3000")
+        if (BuildConfig.DEBUG) {
+            allowHost("*")
+        } else {
+            allowHost("localhost:3000")
+            allowHost("127.0.0.1:3000")
+        }
         allowHeadersPrefixed("c-")
         allowHeader("x-box-api")
     }
@@ -251,9 +258,18 @@ fun Application.module() {
                 val path = FileHelper.getFilePath(id).getFinalPath(context)
                 if (path.startsWith("content://")) {
                     val bytes = context.contentResolver.openInputStream(Uri.parse(path))?.buffered()?.use { it.readBytes() }
-                    call.respondBytes(bytes!!)
+                    if (bytes != null) {
+                        call.respondBytes(bytes)
+                    } else {
+                        call.respond(HttpStatusCode.NotFound)
+                    }
                 } else {
                     val file = File(path)
+                    if (!file.exists()) {
+                        call.respond(HttpStatusCode.NotFound)
+                        return@get
+                    }
+
                     val fileName = URLEncoder.encode(q["name"] ?: file.name, "UTF-8")
                     if (q["dl"] == "1") {
                         call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
@@ -263,24 +279,10 @@ fun Application.module() {
 
                     val w = q["w"]?.toIntOrNull()
                     val h = q["h"]?.toIntOrNull()
-                    val centerCrop = q["cc"]?.toBooleanStrictOrNull()
+                    val centerCrop = q["cc"]?.toBooleanStrictOrNull() ?: true
                     // get video/image thumbnail
                     if (w != null && h != null) {
-                        val bitmap = file.getBitmapAsync(context, w, h)
-                        if (bitmap != null && file.name.endsWith(".gif", true)) {
-                            call.respondOutputStream(ContentType.Image.GIF) {
-                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, this)
-                            }
-                            return@get
-                        }
-
-                        val stream = ByteArrayOutputStream()
-                        if (file.name.endsWith(".png", true)) {
-                            bitmap?.compress(Bitmap.CompressFormat.PNG, 70, stream)
-                        } else {
-                            bitmap?.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-                        }
-                        call.respondBytes(stream.toByteArray())
+                        call.respondBytes(file.toThumbBytesAsync(MainApp.instance, w, h, centerCrop))
                         return@get
                     }
 
