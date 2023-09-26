@@ -13,9 +13,14 @@ import com.apurebase.kgraphql.schema.execution.Execution
 import com.apurebase.kgraphql.schema.execution.Executor
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.extensions.allowSensitivePermissions
+import com.ismartcoding.lib.extensions.getFinalPath
+import com.ismartcoding.lib.extensions.isAudioFast
+import com.ismartcoding.lib.extensions.isImageFast
+import com.ismartcoding.lib.extensions.isVideoFast
 import com.ismartcoding.lib.extensions.newPath
 import com.ismartcoding.lib.extensions.scanFileByConnection
 import com.ismartcoding.lib.extensions.toAppUrl
+import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.PhoneHelper
@@ -28,8 +33,7 @@ import com.ismartcoding.plain.api.HttpApiTimeout
 import com.ismartcoding.plain.data.UIDataCache
 import com.ismartcoding.plain.data.enums.ActionSourceType
 import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.BucketType
-import com.ismartcoding.plain.data.enums.TagType
+import com.ismartcoding.plain.data.enums.DataType
 import com.ismartcoding.plain.data.preference.ApiPermissionsPreference
 import com.ismartcoding.plain.data.preference.AudioPlayModePreference
 import com.ismartcoding.plain.data.preference.AudioPlayingPreference
@@ -67,8 +71,8 @@ import com.ismartcoding.plain.features.contact.SourceHelper
 import com.ismartcoding.plain.features.feed.FeedEntryHelper
 import com.ismartcoding.plain.features.feed.FeedHelper
 import com.ismartcoding.plain.features.feed.fetchContentAsync
+import com.ismartcoding.plain.features.file.FileSortBy
 import com.ismartcoding.plain.features.file.FileSystemHelper
-import com.ismartcoding.plain.data.enums.MediaType
 import com.ismartcoding.plain.features.image.ImageHelper
 import com.ismartcoding.plain.features.note.NoteHelper
 import com.ismartcoding.plain.features.pkg.PackageHelper
@@ -76,12 +80,14 @@ import com.ismartcoding.plain.features.sms.SmsHelper
 import com.ismartcoding.plain.features.tag.TagHelper
 import com.ismartcoding.plain.features.tag.TagRelationStub
 import com.ismartcoding.plain.features.video.VideoHelper
+import com.ismartcoding.plain.helpers.AppHelper
 import com.ismartcoding.plain.helpers.ExchangeHelper
 import com.ismartcoding.plain.helpers.FileHelper
 import com.ismartcoding.plain.helpers.TempHelper
 import com.ismartcoding.plain.receivers.PlugInControlReceiver
 import com.ismartcoding.plain.services.ScreenMirrorService
 import com.ismartcoding.plain.ui.MainActivity
+import com.ismartcoding.plain.web.loaders.FileInfoLoader
 import com.ismartcoding.plain.web.loaders.TagsLoader
 import com.ismartcoding.plain.web.models.AIChat
 import com.ismartcoding.plain.web.models.AIChatConfig
@@ -93,6 +99,7 @@ import com.ismartcoding.plain.web.models.Contact
 import com.ismartcoding.plain.web.models.ContactGroup
 import com.ismartcoding.plain.web.models.ContactInput
 import com.ismartcoding.plain.web.models.FeedEntry
+import com.ismartcoding.plain.web.models.FileInfo
 import com.ismartcoding.plain.web.models.Files
 import com.ismartcoding.plain.web.models.ID
 import com.ismartcoding.plain.web.models.Image
@@ -131,19 +138,10 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
-import kotlin.collections.List
-import kotlin.collections.any
-import kotlin.collections.arrayListOf
-import kotlin.collections.filter
-import kotlin.collections.forEach
-import kotlin.collections.isNotEmpty
-import kotlin.collections.map
 import kotlin.collections.set
-import kotlin.collections.setOf
-import kotlin.collections.toSet
-import kotlin.collections.toTypedArray
 import kotlin.io.path.Path
 import kotlin.io.path.moveTo
 
@@ -163,7 +161,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.AI_CHAT)
+                                TagsLoader.load(ids, DataType.AI_CHAT)
                             }
                         }
                     }
@@ -216,9 +214,9 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 type<ChatItem> {
-                    property(ChatItem::_content) {
-                        ignore = true
-                    }
+//                    property(ChatItem::_content) {
+//                        ignore = true
+//                    }
                     property("data") {
                         resolver { c: ChatItem ->
                             c.getContentData()
@@ -237,7 +235,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.SMS)
+                                TagsLoader.load(ids, DataType.SMS)
                             }
                         }
                     }
@@ -264,7 +262,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.IMAGE)
+                                TagsLoader.load(ids, DataType.IMAGE)
                             }
                         }
                     }
@@ -279,18 +277,18 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 query("mediaBuckets") {
-                    resolver { type: BucketType ->
+                    resolver { type: DataType ->
                         val context = MainApp.instance
                         if (Permission.WRITE_EXTERNAL_STORAGE.can(context)) {
-                            if (type == BucketType.IMAGE) {
+                            if (type == DataType.IMAGE) {
                                 ImageHelper.getBuckets(context).map { it.toModel() }
-                            } else if (type == BucketType.AUDIO) {
+                            } else if (type == DataType.AUDIO) {
                                 if (isQPlus()) {
                                     AudioHelper.getBuckets(context).map { it.toModel() }
                                 } else {
                                     emptyList()
                                 }
-                            } else if (type == BucketType.VIDEO) {
+                            } else if (type == DataType.VIDEO) {
                                 VideoHelper.getBuckets(context).map { it.toModel() }
                             } else {
                                 emptyList()
@@ -313,7 +311,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.VIDEO)
+                                TagsLoader.load(ids, DataType.VIDEO)
                             }
                         }
                     }
@@ -340,7 +338,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.AUDIO)
+                                TagsLoader.load(ids, DataType.AUDIO)
                             }
                         }
                     }
@@ -366,7 +364,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.CONTACT)
+                                TagsLoader.load(ids, DataType.CONTACT)
                             }
                         }
                     }
@@ -409,7 +407,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.CALL)
+                                TagsLoader.load(ids, DataType.CALL)
                             }
                         }
                     }
@@ -449,7 +447,7 @@ class SXGraphQL(val schema: Schema) {
                         StorageStats(
                             FileSystemHelper.getInternalStorageStats().toModel(),
                             FileSystemHelper.getSDCardStorageStats(context).toModel(),
-                            FileSystemHelper.getUSBStorageStats(context).map { it.toModel() }
+                            FileSystemHelper.getUSBStorageStats().map { it.toModel() }
                         )
                     }
                 }
@@ -466,11 +464,30 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 query("files") {
-                    resolver { dir: String, showHidden: Boolean ->
+                    resolver { dir: String, showHidden: Boolean, sortBy: FileSortBy ->
                         val context = MainApp.instance
                         Permission.WRITE_EXTERNAL_STORAGE.checkAsync(context)
-                        val files = FileSystemHelper.getFilesList(dir, showHidden, FileSortByPreference.getValueAsync(context)).map { it.toModel() }
+                        val files = FileSystemHelper.getFilesList(dir, showHidden, sortBy).map { it.toModel() }
                         Files(dir, files)
+                    }
+                }
+                query("fileInfo") {
+                    resolver { id: ID, path: String ->
+                        val context = MainApp.instance
+                        Permission.WRITE_EXTERNAL_STORAGE.checkAsync(context)
+                        val finalPath = path.getFinalPath(context)
+                        val file = File(finalPath)
+                        val updatedAt = Instant.fromEpochMilliseconds(file.lastModified())
+                        val size = file.length()
+                        val fileInfo = FileInfo(updatedAt, size)
+                        if (finalPath.isImageFast()) {
+                            fileInfo.data = FileInfoLoader.loadImage(id.value, finalPath)
+                        } else if (finalPath.isVideoFast()) {
+                            fileInfo.data = FileInfoLoader.loadVideo(context, id.value, finalPath)
+                        } else if (finalPath.isAudioFast()) {
+                            fileInfo.data = FileInfoLoader.loadAudio(context, id.value, finalPath)
+                        }
+                        fileInfo
                     }
                 }
                 query("boxes") {
@@ -480,9 +497,12 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 query("tags") {
-                    resolver { type: TagType ->
-                        val items = TagHelper.getAll(type)
-                        items.map { it.toModel() }
+                    resolver { type: DataType ->
+                        val tagCountMap = TagHelper.count(type).associate { it.id to it.count }
+                        TagHelper.getAll(type).map {
+                            it.count = tagCountMap[it.id] ?: 0
+                            it.toModel()
+                        }
                     }
                 }
                 query("feeds") {
@@ -503,7 +523,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.FEED_ENTRY)
+                                TagsLoader.load(ids, DataType.FEED_ENTRY)
                             }
                         }
                     }
@@ -531,7 +551,7 @@ class SXGraphQL(val schema: Schema) {
                         dataProperty("tags") {
                             prepare { item -> item.id.value }
                             loader { ids ->
-                                TagsLoader.load(ids, TagType.NOTE)
+                                TagsLoader.load(ids, DataType.NOTE)
                             }
                         }
                     }
@@ -561,7 +581,7 @@ class SXGraphQL(val schema: Schema) {
                         val apiPermissions = ApiPermissionsPreference.getAsync(context)
                         App(
                             usbConnected = PlugInControlReceiver.isUSBConnected(context),
-                            fileIdToken = TempData.fileIdToken,
+                            urlToken = TempData.urlToken,
                             externalFilesDir = context.getExternalFilesDir(null)?.path ?: "",
                             if (TempData.demoMode) "Demo phone" else PhoneHelper.getDeviceName(context),
                             PhoneHelper.getBatteryPercentage(context),
@@ -573,7 +593,7 @@ class SXGraphQL(val schema: Schema) {
                             context.allowSensitivePermissions(),
                             sdcardPath = FileSystemHelper.getSDCardPath(context),
                             usbDiskPaths = FileSystemHelper.getUsbDiskPaths(),
-                            internalStoragePath = FileSystemHelper.getInternalStoragePath(context),
+                            internalStoragePath = FileSystemHelper.getInternalStoragePath(),
                             downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
                         )
                     }
@@ -634,26 +654,27 @@ class SXGraphQL(val schema: Schema) {
                         items.map { it.toModel() }
                     }
                 }
-                mutation("deleteAIChatsByParentIds") {
-                    resolver { ids: List<ID> ->
-                        val newIds = ids.map { it.value }.toSet()
-                        AIChatHelper.deleteByParentIdsAsync(newIds)
+                mutation("relaunchApp") {
+                    resolver { ->
+                        coIO {
+                            AppHelper.relaunch(MainApp.instance)
+                        }
                         true
                     }
                 }
                 mutation("deleteAIChats") {
-                    resolver { ids: List<ID> ->
-                        val newIds = ids.map { it.value }.toSet()
-                        AIChatHelper.deleteAsync(newIds)
+                    resolver { query: String ->
+                        AIChatHelper.deleteAsync(query)
                         true
                     }
                 }
                 mutation("deleteContacts") {
-                    resolver { ids: List<ID> ->
-                        Permission.WRITE_CONTACTS.checkAsync(MainApp.instance)
-                        val newIds = ids.map { it.value }.toSet()
-                        TagHelper.deleteTagRelationByKeys(newIds, TagType.CONTACT)
-                        ContactHelper.deleteByIds(MainApp.instance, newIds)
+                    resolver { query: String ->
+                        val context = MainApp.instance
+                        Permission.WRITE_CONTACTS.checkAsync(context)
+                        val newIds = ContactHelper.getIds(context, query)
+                        TagHelper.deleteTagRelationByKeys(newIds, DataType.CONTACT)
+                        ContactHelper.deleteByIds(context, newIds)
                         true
                     }
                 }
@@ -679,7 +700,7 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("createTag") {
-                    resolver { type: TagType, name: String ->
+                    resolver { type: DataType, name: String ->
                         val id = TagHelper.addOrUpdate("") {
                             this.name = name
                             this.type = type.value
@@ -759,21 +780,23 @@ class SXGraphQL(val schema: Schema) {
                 }
 
                 mutation("deleteCalls") {
-                    resolver { ids: List<ID> ->
-                        Permission.WRITE_CALL_LOG.checkAsync(MainApp.instance)
-                        val newIds = ids.map { it.value }.toSet()
-                        TagHelper.deleteTagRelationByKeys(newIds, TagType.CALL)
-                        CallHelper.deleteByIds(MainApp.instance, newIds)
+                    resolver { query: String ->
+                        val context = MainApp.instance
+                        Permission.WRITE_CALL_LOG.checkAsync(context)
+                        val newIds = CallHelper.getIds(context, query)
+                        TagHelper.deleteTagRelationByKeys(newIds, DataType.CALL)
+                        CallHelper.deleteByIds(context, newIds)
                         true
                     }
                 }
                 mutation("deleteFiles") {
                     resolver { paths: List<String> ->
-                        Permission.WRITE_EXTERNAL_STORAGE.checkAsync(MainApp.instance)
+                        val context = MainApp.instance
+                        Permission.WRITE_EXTERNAL_STORAGE.checkAsync(context)
                         paths.forEach {
                             java.io.File(it).deleteRecursively()
                         }
-                        MainApp.instance.scanFileByConnection(paths.toTypedArray())
+                        context.scanFileByConnection(paths.toTypedArray())
                         true
                     }
                 }
@@ -851,37 +874,42 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("trashNotes") {
-                    resolver { ids: List<ID> ->
-                        NoteHelper.trashAsync(ids.map { it.value }.toSet())
+                    resolver { query: String ->
+                        val ids = NoteHelper.getIdsAsync(query)
+                        TagHelper.deleteTagRelationByKeys(ids, DataType.NOTE)
+                        NoteHelper.trashAsync(ids)
                         true
                     }
                 }
                 mutation("untrashNotes") {
-                    resolver { ids: List<ID> ->
-                        NoteHelper.untrashAsync(ids.map { it.value }.toSet())
+                    resolver { query: String ->
+                        val ids = NoteHelper.getIdsAsync(query)
+                        NoteHelper.untrashAsync(ids)
                         true
                     }
                 }
                 mutation("deleteNotes") {
-                    resolver { ids: List<ID> ->
-                        val newIds = ids.map { it.value }.toSet()
-                        TagHelper.deleteTagRelationByKeys(newIds, TagType.NOTE)
-                        NoteHelper.deleteAsync(newIds)
+                    resolver { query: String ->
+                        val ids = NoteHelper.getIdsAsync(query)
+                        TagHelper.deleteTagRelationByKeys(ids, DataType.NOTE)
+                        NoteHelper.deleteAsync(ids)
                         true
                     }
                 }
                 mutation("deleteFeedEntries") {
-                    resolver { ids: List<ID> ->
-                        val newIds = ids.map { it.value }.toSet()
-                        TagHelper.deleteTagRelationByKeys(newIds, TagType.FEED_ENTRY)
-                        FeedEntryHelper.feedEntryDao.delete(newIds)
+                    resolver { query: String ->
+                        val ids = FeedEntryHelper.getIdsAsync(query)
+                        TagHelper.deleteTagRelationByKeys(ids, DataType.FEED_ENTRY)
+                        FeedEntryHelper.deleteAsync(ids)
                         true
                     }
                 }
                 mutation("addPlaylistAudios") {
-                    resolver { paths: List<String> ->
+                    resolver { query: String ->
                         val context = MainApp.instance
-                        AudioPlaylistPreference.addAsync(context, paths.map { DPlaylistAudio.fromPath(context, it) })
+                        // 1000 items at most
+                        val items = AudioHelper.search(context, query, 1000, 0, AudioSortByPreference.getValueAsync(context))
+                        AudioPlaylistPreference.addAsync(context, items.map { DPlaylistAudio(it.title, it.path, it.artist, it.duration) })
                         true
                     }
                 }
@@ -911,13 +939,55 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("addToTags") {
-                    resolver { tagType: TagType, tagIds: List<ID>, items: List<TagRelationStub> ->
+                    resolver { type: DataType, tagIds: List<ID>, query: String ->
+                        var items = listOf<TagRelationStub>()
+                        val context = MainApp.instance
+                        when (type) {
+                            DataType.AUDIO -> {
+                                items = AudioHelper.getTagRelationStubs(context, query)
+                            }
+
+                            DataType.VIDEO -> {
+                                items = VideoHelper.getTagRelationStubs(context, query)
+                            }
+
+                            DataType.IMAGE -> {
+                                items = ImageHelper.getTagRelationStubs(context, query)
+                            }
+
+                            DataType.SMS -> {
+                                items = SmsHelper.getIds(context, query).map { TagRelationStub(it) }
+                            }
+
+                            DataType.CONTACT -> {
+                                items = ContactHelper.getIds(context, query).map { TagRelationStub(it) }
+                            }
+
+                            DataType.NOTE -> {
+                                items = NoteHelper.getIdsAsync(query).map { TagRelationStub(it) }
+                            }
+
+                            DataType.FEED_ENTRY -> {
+                                items = FeedEntryHelper.getIdsAsync(query).map { TagRelationStub(it) }
+                            }
+
+                            DataType.CALL -> {
+                                items = CallHelper.getIds(context, query).map { TagRelationStub(it) }
+                            }
+
+                            DataType.AI_CHAT -> {
+                                items = AIChatHelper.getIdsAsync(query).map { TagRelationStub(it) }
+                            }
+
+                            else -> {}
+                        }
+
                         tagIds.forEach { tagId ->
                             val existingKeys = withIO { TagHelper.getKeysByTagId(tagId.value) }
                             val newItems = items.filter { !existingKeys.contains(it.key) }
                             if (newItems.isNotEmpty()) {
                                 TagHelper.addTagRelations(newItems.map {
-                                    it.toTagRelation(tagId.value, tagType)
+                                    it.toTagRelation(tagId.value, type)
                                 })
                             }
                         }
@@ -925,10 +995,10 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("updateTagRelations") {
-                    resolver { tagType: TagType, item: TagRelationStub, addTagIds: List<ID>, removeTagIds: List<ID> ->
+                    resolver { type: DataType, item: TagRelationStub, addTagIds: List<ID>, removeTagIds: List<ID> ->
                         addTagIds.forEach { tagId ->
                             TagHelper.addTagRelations(arrayOf(item).map {
-                                it.toTagRelation(tagId.value, tagType)
+                                it.toTagRelation(tagId.value, type)
                             })
                         }
                         if (removeTagIds.isNotEmpty()) {
@@ -938,34 +1008,79 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("removeFromTags") {
-                    resolver { tagIds: List<ID>, keys: List<ID> ->
-                        TagHelper.deleteTagRelationByKeysTagIds(keys.map { it.value }.toSet(), tagIds.map { it.value }.toSet())
+                    resolver { type: DataType, tagIds: List<ID>, query: String->
+                        val context = MainApp.instance
+                        var ids = setOf<String>()
+                        when (type) {
+                            DataType.AUDIO -> {
+                                ids = AudioHelper.getIds(context, query)
+                            }
+
+                            DataType.VIDEO -> {
+                                ids = VideoHelper.getIds(context, query)
+                            }
+
+                            DataType.IMAGE -> {
+                                ids = ImageHelper.getIds(context, query)
+                            }
+
+                            DataType.SMS -> {
+                                ids = SmsHelper.getIds(context, query)
+                            }
+
+                            DataType.CONTACT -> {
+                                ids = ContactHelper.getIds(context, query)
+                            }
+
+                            DataType.NOTE -> {
+                                ids = NoteHelper.getIdsAsync(query)
+                            }
+
+                            DataType.FEED_ENTRY -> {
+                                ids = FeedEntryHelper.getIdsAsync(query)
+                            }
+
+                            DataType.CALL -> {
+                                ids = CallHelper.getIds(context, query)
+                            }
+
+                            DataType.AI_CHAT -> {
+                                ids = AIChatHelper.getIdsAsync(query)
+                            }
+
+                            else -> {}
+                        }
+
+                        TagHelper.deleteTagRelationByKeysTagIds(ids, tagIds.map { it.value }.toSet())
                         true
                     }
                 }
                 mutation("deleteMediaItems") {
-                    resolver { tagType: TagType, ids: List<ID> ->
-                        val newIds = ids.map { it.value }.toSet()
-                        TagHelper.deleteTagRelationByKeys(newIds, tagType)
+                    resolver { type: DataType, query: String ->
+                        var ids = setOf<String>()
                         val context = MainApp.instance
-                        when (tagType) {
-                            TagType.AUDIO -> {
-                                val paths = AudioHelper.deleteRecordsAndFilesByIds(context, newIds)
+                        when (type) {
+                            DataType.AUDIO -> {
+                                ids = AudioHelper.getIds(context, query)
+                                val paths = AudioHelper.deleteRecordsAndFilesByIds(context, ids)
                                 AudioPlaylistPreference.deleteAsync(context, paths)
                             }
 
-                            TagType.VIDEO -> {
-                                val paths = VideoHelper.deleteRecordsAndFilesByIds(context, newIds)
+                            DataType.VIDEO -> {
+                                ids = VideoHelper.getIds(context, query)
+                                val paths = VideoHelper.deleteRecordsAndFilesByIds(context, ids)
                                 VideoPlaylistPreference.deleteAsync(context, paths)
                             }
 
-                            TagType.IMAGE -> {
-                                ImageHelper.deleteRecordsAndFilesByIds(context, newIds)
+                            DataType.IMAGE -> {
+                                ids = ImageHelper.getIds(context, query)
+                                ImageHelper.deleteRecordsAndFilesByIds(context, ids)
                             }
 
                             else -> {
                             }
                         }
+                        TagHelper.deleteTagRelationByKeys(ids, type)
                         true
                     }
                 }
@@ -988,7 +1103,7 @@ class SXGraphQL(val schema: Schema) {
                         val newIds = setOf(id.value)
                         val entryIds = FeedEntryHelper.feedEntryDao.getIds(newIds)
                         if (entryIds.isNotEmpty()) {
-                            TagHelper.deleteTagRelationByKeys(entryIds.toSet(), TagType.FEED_ENTRY)
+                            TagHelper.deleteTagRelationByKeys(entryIds.toSet(), DataType.FEED_ENTRY)
                             FeedEntryHelper.feedEntryDao.deleteByFeedIds(newIds)
                         }
                         FeedHelper.deleteAsync(newIds)
@@ -1003,9 +1118,9 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 enum<MediaPlayMode>()
-                enum<BucketType>()
-                enum<TagType>()
+                enum<DataType>()
                 enum<Permission>()
+                enum<FileSortBy>()
                 stringScalar<Instant> {
                     deserialize = { value: String -> value.toInstant() }
                     serialize = Instant::toString

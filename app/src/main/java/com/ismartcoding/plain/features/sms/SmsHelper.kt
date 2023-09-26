@@ -21,6 +21,7 @@ import kotlin.random.Random
 
 object SmsHelper : BaseContentHelper() {
     override val uriExternal: Uri = Telephony.Sms.CONTENT_URI
+    override val idKey: String = Telephony.Sms._ID
     private val demoItems = mutableListOf<DMessage>()
 
     override fun getProjection(): Array<String> {
@@ -93,17 +94,18 @@ object SmsHelper : BaseContentHelper() {
         val cursor = getSearchCursorWithSortOrder(context, query, limit, offset, SortBy(Telephony.Sms.DATE, SortDirection.DESC))
         val items = mutableListOf<DMessage>()
         if (cursor?.moveToFirst() == true) {
+            val cache = mutableMapOf<String, Int>()
             do {
                 items.add(
                     DMessage(
-                        cursor.getStringValue(Telephony.Sms._ID),
-                        cursor.getStringValue(Telephony.Sms.BODY),
-                        cursor.getStringValue(Telephony.Sms.ADDRESS),
-                        cursor.getTimeValue(Telephony.Sms.DATE),
-                        cursor.getStringValue(Telephony.Sms.SERVICE_CENTER),
-                        cursor.getIntValue(Telephony.Sms.READ) == 1,
-                        cursor.getStringValue(Telephony.Sms.THREAD_ID),
-                        cursor.getIntValue(Telephony.Sms.TYPE)
+                        cursor.getStringValue(Telephony.Sms._ID, cache),
+                        cursor.getStringValue(Telephony.Sms.BODY, cache),
+                        cursor.getStringValue(Telephony.Sms.ADDRESS, cache),
+                        cursor.getTimeValue(Telephony.Sms.DATE, cache),
+                        cursor.getStringValue(Telephony.Sms.SERVICE_CENTER, cache),
+                        cursor.getIntValue(Telephony.Sms.READ, cache) == 1,
+                        cursor.getStringValue(Telephony.Sms.THREAD_ID, cache),
+                        cursor.getIntValue(Telephony.Sms.TYPE, cache)
                     )
                 )
             } while (cursor.moveToNext())

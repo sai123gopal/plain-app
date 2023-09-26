@@ -26,11 +26,13 @@ import com.ismartcoding.plain.data.preference.HttpPortPreference
 import com.ismartcoding.plain.data.preference.HttpsPortPreference
 import com.ismartcoding.plain.data.preference.KeyStorePasswordPreference
 import com.ismartcoding.plain.data.preference.PasswordTypePreference
+import com.ismartcoding.plain.data.preference.UrlTokenPreference
 import com.ismartcoding.plain.data.preference.WebPreference
 import com.ismartcoding.plain.data.preference.dataStore
 import com.ismartcoding.plain.features.AppEvents
 import com.ismartcoding.plain.features.bluetooth.BluetoothEvents
 import com.ismartcoding.plain.features.box.BoxEvents
+import com.ismartcoding.plain.features.pkg.PackageHelper
 import com.ismartcoding.plain.ui.helpers.PageHelper
 import com.ismartcoding.plain.web.HttpServerManager
 import com.ismartcoding.plain.workers.FeedFetchWorker
@@ -41,7 +43,6 @@ import okhttp3.OkHttpClient
 
 
 class MainApp : Application(), ImageLoaderFactory {
-    var httpServer: NettyApplicationEngine? = null
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
@@ -97,7 +98,7 @@ class MainApp : Application(), ImageLoaderFactory {
 
         BluetoothEvents.register()
         AppEvents.register()
-        BoxEvents.register()
+        //BoxEvents.register()
 
         coIO {
             val preferences = dataStore.data.first()
@@ -106,6 +107,7 @@ class MainApp : Application(), ImageLoaderFactory {
             TempData.httpsPort = HttpsPortPreference.get(preferences)
             ClientIdPreference.ensureValueAsync(instance, preferences)
             KeyStorePasswordPreference.ensureValueAsync(instance, preferences)
+            UrlTokenPreference.ensureValueAsync(instance, preferences)
 
             DarkThemePreference.setDarkMode(DarkTheme.parse(DarkThemePreference.get(preferences)))
 
@@ -116,6 +118,7 @@ class MainApp : Application(), ImageLoaderFactory {
             if (FeedAutoRefreshPreference.get(preferences)) {
                 FeedFetchWorker.startRepeatWorkerAsync(instance)
             }
+            PackageHelper.cacheAppLabels()
             HttpServerManager.clientTsInterval()
         }
     }

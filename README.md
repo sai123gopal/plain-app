@@ -59,20 +59,38 @@ Your donation is highly appreciated. Thank you!
 
 ## Screenshots
 
-| ![sound meter](screenshots/1.jpeg)    | ![files](screenshots/2.jpeg)            | ![web](screenshots/3.jpeg)                    | ![notes](screenshots/4.jpeg)              |
-|---------------------------------------|-----------------------------------------|-----------------------------------------------|-------------------------------------------|
-| ![audio](screenshots/5.jpeg)         | ![images](screenshots/6.jpeg)           | ![videos](screenshots/7.jpeg)                 | ![rss](screenshots/8.jpeg)                |
-| ![home](screenshots/web-home.png)     | ![images](screenshots/web-images.png)   | ![videos](screenshots/web-videos.png)         | ![notes](screenshots/web-notes.png)       |
-| ![files](screenshots/web-files.png)   | ![chatgpt](screenshots/web-chatgpt.png) | ![messages](screenshots/web-messages.png)     | ![contacts](screenshots/web-contacts.png) |
-| ![audio](screenshots/web-audios.png) | ![rss](screenshots/web-rss.png)         | ![encryption](screenshots/web-encryption.png) |                                           |
+| ![sound meter](screenshots/1.jpeg)   | ![files](screenshots/2.jpeg)            | ![web](screenshots/3.jpeg)                    | ![notes](screenshots/4.jpeg)                     |
+|--------------------------------------|-----------------------------------------|-----------------------------------------------|--------------------------------------------------|
+| ![audio](screenshots/5.jpeg)         | ![images](screenshots/6.jpeg)           | ![videos](screenshots/7.jpeg)                 | ![rss](screenshots/8.jpeg)                       |
+| ![home](screenshots/web-home.png)    | ![images](screenshots/web-images.png)   | ![videos](screenshots/web-videos.png)         | ![notes](screenshots/web-notes.png)              |
+| ![files](screenshots/web-files.png)  | ![chatgpt](screenshots/web-chatgpt.png) | ![messages](screenshots/web-messages.png)     | ![contacts](screenshots/web-contacts.png)        |
+| ![audio](screenshots/web-audios.png) | ![rss](screenshots/web-rss.png)         | ![encryption](screenshots/web-encryption.png) | ![encryption](screenshots/web-screen-mirror.png) |
+| ![audio](screenshots/web-image.png)  | ![rss](screenshots/web-video.png)       | ![encryption](screenshots/web-calls.png)      |                                                  |
 
 ## Compatibility
 
 PlainApp requires Android 9.0 or higher.
 
+## Roadmap
+
+- ❌ Not Started
+- 🟡 In Progress
+- ✅ Completed
+
+| Feature                                                   | WEB | APP |
+|-----------------------------------------------------------|:---:|:---:|
+| Material You Theme                                        | ✅  | 🟡  |
+| Share Files via Web Link                                  |  ❌  |  ❌  |
+| Messaging between Phones with PlainApp (Bluetooth, Wi-Fi) |  ❌  |  ❌  |
+| Translation Dictionary                                    |  ❌  |  ❌  |
+| Books                                                     |  ❌  |  ❌  |
+| To do list                                                |  ❌  |  ❌  |
+
+The ultimate goal is to turn smartphones into personal data and knowledge managers, allowing individuals to more easily exchange knowledge and data with each other through PlainApp.
+
 ## Support
 
-If you encounter any issues, feel free to open an issue on GitHub. We're always happy to help.
+If you encounter any issues, feel free to open an issue on GitHub. I am always happy to help. Please do not give a one-star rating arbitrarily.
 
 ## Download GraphQL schema from PlainBox
 

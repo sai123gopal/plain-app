@@ -10,6 +10,7 @@ enum class RouteName {
     ABOUT,
     LOGS,
     WEB_CONSOLE,
+    WEB_SECURITY,
     PASSWORD,
     TEXT,
     SESSIONS,
@@ -18,6 +19,8 @@ enum class RouteName {
     SOUND_METER,
     CHAT,
     CHAT_TEXT,
+    CHAT_EDIT_TEXT,
     SCAN,
     SCAN_HISTORY,
+    MEDIA_PREVIEW,
 }

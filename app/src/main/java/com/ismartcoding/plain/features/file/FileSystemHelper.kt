@@ -11,6 +11,7 @@ import androidx.core.os.bundleOf
 import com.ismartcoding.lib.extensions.getDirectChildrenCount
 import com.ismartcoding.lib.extensions.getLongValue
 import com.ismartcoding.lib.extensions.getStringValue
+import com.ismartcoding.lib.extensions.getTimeValue
 import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.features.locale.LocaleHelper.getString
@@ -53,14 +54,14 @@ object FileSystemHelper {
     }
 
     fun getSDCardStorageStats(context: Context): DStorageStatsItem {
-        return getStorageStats(context, getSDCardPath(context))
+        return getStorageStats(getSDCardPath(context))
     }
 
-    fun getUSBStorageStats(context: Context): List<DStorageStatsItem> {
-        return getUsbDiskPaths().map { getStorageStats(context, it) }
+    fun getUSBStorageStats(): List<DStorageStatsItem> {
+        return getUsbDiskPaths().map { getStorageStats(it) }
     }
 
-    private fun getStorageStats(context: Context, path: String): DStorageStatsItem {
+    private fun getStorageStats(path: String): DStorageStatsItem {
         if (path.isNotEmpty()) {
             val stat = StatFs(path)
             val availableBytes = stat.blockSizeLong * stat.availableBlocksLong
@@ -71,7 +72,7 @@ object FileSystemHelper {
         return DStorageStatsItem(0, 0)
     }
 
-    fun getInternalStoragePath(context: Context): String {
+    fun getInternalStoragePath(): String {
         return (if (isRPlus()) {
             storageManager.primaryStorageVolume.directory?.path
         } else null) ?: Environment.getExternalStorageDirectory()?.absolutePath?.trimEnd('/') ?: ""
@@ -82,7 +83,7 @@ object FileSystemHelper {
     }
 
     fun getSDCardPath(context: Context): String {
-        val internalPath = getInternalStoragePath(context)
+        val internalPath = getInternalStoragePath()
         val directories = getStorageDirectories(context).filter {
             it != internalPath && !it.equals(
                 "/storage/emulated/0",
@@ -136,12 +137,18 @@ object FileSystemHelper {
 
     private fun getStorageDirectories(context: Context): Array<String> {
         val paths = HashSet<String>()
-        val rawExternalStorage = System.getenv("EXTERNAL_STORAGE")
         val rawSecondaryStoragesStr = System.getenv("SECONDARY_STORAGE")
         val rawEmulatedStorageTarget = System.getenv("EMULATED_STORAGE_TARGET")
-        if (TextUtils.isEmpty(rawEmulatedStorageTarget)) {
+        if (rawEmulatedStorageTarget.isNullOrEmpty()) {
             context.getExternalFilesDirs(null).filterNotNull().map { it.absolutePath }
-                .mapTo(paths) { it.substring(0, it.indexOf("Android/data")) }
+                .mapTo(paths) {
+                    val index = it.indexOf("/Android/data")
+                    if (index < 0) {
+                        it
+                    } else {
+                        it.substring(0, index)
+                    }
+                }
         } else {
             val path = Environment.getExternalStorageDirectory().absolutePath
             val folders = Pattern.compile("/").split(path)
@@ -155,13 +162,13 @@ object FileSystemHelper {
 
             val rawUserId = if (isDigit) lastFolder else ""
             if (TextUtils.isEmpty(rawUserId)) {
-                paths.add(rawEmulatedStorageTarget!!)
+                paths.add(rawEmulatedStorageTarget)
             } else {
                 paths.add(rawEmulatedStorageTarget + File.separator + rawUserId)
             }
         }
 
-        if (!TextUtils.isEmpty(rawSecondaryStoragesStr)) {
+        if (!rawSecondaryStoragesStr.isNullOrEmpty()) {
             val rawSecondaryStorages = rawSecondaryStoragesStr!!.split(File.pathSeparator.toRegex()).dropLastWhile(String::isEmpty).toTypedArray()
             Collections.addAll(paths, *rawSecondaryStorages)
         }
@@ -257,15 +264,16 @@ object FileSystemHelper {
         )
         context.contentResolver?.query(uri, projection, queryArgs, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
+                val cache = mutableMapOf<String, Int>()
                 do {
-                    val path = cursor.getStringValue(MediaStore.Files.FileColumns.DATA)
+                    val path = cursor.getStringValue(MediaStore.Files.FileColumns.DATA, cache)
                     if (File(path).isDirectory) {
                         continue
                     }
 
-                    val name = cursor.getStringValue(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                    val size = cursor.getLongValue(MediaStore.Files.FileColumns.SIZE)
-                    val updatedAt = Instant.fromEpochMilliseconds(cursor.getLongValue(MediaStore.Files.FileColumns.DATE_MODIFIED) * 1000L)
+                    val name = cursor.getStringValue(MediaStore.Files.FileColumns.DISPLAY_NAME, cache)
+                    val size = cursor.getLongValue(MediaStore.Files.FileColumns.SIZE, cache)
+                    val updatedAt = Instant.fromEpochMilliseconds(cursor.getLongValue(MediaStore.Files.FileColumns.DATE_MODIFIED, cache) * 1000L)
                     items.add(DFile(name, path, "", updatedAt, size, false, 0))
                 } while (cursor.moveToNext())
             }

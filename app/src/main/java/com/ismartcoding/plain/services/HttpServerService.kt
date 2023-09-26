@@ -6,6 +6,7 @@ import androidx.lifecycle.coroutineScope
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.isUPlus
 import com.ismartcoding.lib.logcat.LogCat
+import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.helpers.NotificationHelper
@@ -21,7 +22,7 @@ class HttpServerService : LifecycleService() {
         NotificationHelper.ensureDefaultChannel()
         val notification = NotificationHelper.createServiceNotification(
             this,
-            "com.ismartcoding.plain.action.stop_http_server",
+            "${BuildConfig.APPLICATION_ID}.action.stop_http_server",
             getString(R.string.api_service_is_running)
         )
         if (isUPlus()) {
@@ -31,14 +32,15 @@ class HttpServerService : LifecycleService() {
         }
         lifecycle.coroutineScope.launch(Dispatchers.IO) {
             try {
-                if (MainApp.instance.httpServer == null) {
-                    MainApp.instance.httpServer = HttpServerManager.createHttpServer(MainApp.instance)
-                    MainApp.instance.httpServer?.start(wait = true)
+                if (HttpServerManager.httpServer == null) {
+                    HttpServerManager.httpServer = HttpServerManager.createHttpServer(MainApp.instance)
+                    HttpServerManager.httpServer?.start(wait = true)
+                    HttpServerManager.stoppedByUser = false
                     HttpServerManager.httpServerError = ""
                 }
             } catch (ex: Exception) {
                 ex.printStackTrace()
-                MainApp.instance.httpServer = null
+                HttpServerManager.httpServer = null
                 HttpServerManager.httpServerError = ex.toString()
                 LogCat.e(ex.toString())
             }
@@ -50,12 +52,12 @@ class HttpServerService : LifecycleService() {
         stopSelf()
         coIO {
             try {
-                MainApp.instance.httpServer?.let { h ->
+                HttpServerManager.httpServer?.let { h ->
                     val environment = h.environment
                     environment.monitor.raise(ApplicationStopPreparing, environment)
                     environment.stop()
                 }
-                MainApp.instance.httpServer = null
+                HttpServerManager.httpServer = null
             } catch (ex: Exception) {
                 ex.printStackTrace()
             }

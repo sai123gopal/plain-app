@@ -1,5 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">PlainApp</string>
+    <string name="security">Sécurité</string>
+    <string name="url_token">Jeton d\'URL</string>
+    <string name="url_token_tips">Le jeton d\'URL chiffre les données dans les URL. S\'il est réinitialisé, les URL chiffrées avec l\'ancien jeton deviennent inaccessibles.</string>
+    <string name="http_server_ok">Servidor HTTP iniciado</string>
+    <string name="http_server_error">Le serveur HTTP n\'est pas démarré. Relancez PlainApp et réessayez. Assurez-vous qu\'aucune autre application n\'occupe les ports HTTP ou HTTPS. Si le problème persiste, veuillez fournir plus de détails sur le problème en contactant ismartcoding@gmail.com.</string>
+    <string name="relaunch_app">Relancer l\'application</string>
     <string name="load_no_more">Fin</string>
     <string name="list_empty">La liste est vide</string>
     <string name="select_box_title">Sélectionner une boîte</string>
@@ -444,7 +450,7 @@
     <string name="web_console_desc">Votre PC et votre appareil mobile doivent être dans le même sous-réseau. Pour maximiser les performances de votre téléphone, veuillez connecter l\'adaptateur USB à une prise de courant.</string>
     <string name="fetch_content_automatically">Récupération automatique du contenu</string>
     <string name="app_restored">Les données de l\'application sont restaurées, vous devez quitter l\'application de force et la redémarrer comme nouvelle.</string>
-    <string name="welcome_text">Bienvenue dans cette application ! Envoyez facilement du texte, des images et des vidéos pour les afficher sur votre PC.</string>
+    <string name="welcome_text">Bienvenue ! Vous pouvez facilement envoyer du texte, des images et des vidéos sur cette page et les visualiser sur votre ordinateur.\nSi vous rencontrez des problèmes, n\'hésitez pas à envoyer un e-mail à ismartcoding@gmail.com pour obtenir de l\'aide ou rejoignez notre discussion sur Discord à l\'adresse : https://discord.gg/RQWcS6DEEe.</string>
     <string name="demo_mode">Mode de démonstration</string>
     <string name="donation">Don</string>
     <string name="logs">Journaux</string>
@@ -455,6 +461,7 @@
     <string name="password_type_none">Aucun mot de passe</string>
     <string name="restart_app_title">Redémarrer l\'application</string>
     <string name="http_server_failed">Démarrage du serveur HTTP échoué, vous devez quitter l\'application de force et la rouvrir.</string>
+    <string name="http_server_stopped">Le serveur HTTP est arrêté.</string>
     <string name="restart_app_message">Vous devez quitter l\'application de force et la rouvrir.</string>
     <string name="keep_screen_on">Garder l\'écran allumé</string>
     <string name="cast_mode">Mode de diffusion</string>

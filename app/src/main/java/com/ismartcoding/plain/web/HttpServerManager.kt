@@ -9,8 +9,6 @@ import com.ismartcoding.lib.helpers.JsonHelper
 import com.ismartcoding.plain.Constants
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.TempData
-import com.ismartcoding.plain.data.preference.HttpPortPreference
-import com.ismartcoding.plain.data.preference.HttpsPortPreference
 import com.ismartcoding.plain.data.preference.PasswordPreference
 import com.ismartcoding.plain.db.AppDatabase
 import com.ismartcoding.plain.db.SessionClientTsUpdate
@@ -34,6 +32,7 @@ import java.util.Collections
 import java.util.Timer
 import java.util.TimerTask
 import kotlin.collections.set
+import kotlin.concurrent.timerTask
 
 object HttpServerManager {
     private const val SSL_KEY_ALIAS = Constants.SSL_NAME
@@ -42,6 +41,8 @@ object HttpServerManager {
     val wsSessions = Collections.synchronizedSet<WebSocketSession>(LinkedHashSet())
     val clientRequestTs = mutableMapOf<String, Long>()
     var httpServerError: String = ""
+    var httpServer: NettyApplicationEngine? = null
+    var stoppedByUser = false
 
     suspend fun resetPasswordAsync(): String {
         val password = CryptoHelper.randomPassword(6)
@@ -109,18 +110,16 @@ object HttpServerManager {
 
     fun clientTsInterval() {
         val duration = 5000L
-        Timer().scheduleAtFixedRate(object : TimerTask() {
-            override fun run() {
-                val now = System.currentTimeMillis()
-                val updates = clientRequestTs.filter { it.value + duration > now }
-                    .map { SessionClientTsUpdate(it.key, Instant.fromEpochMilliseconds(it.value)) }
-                if (updates.isNotEmpty()) {
-                    coIO {
-                        AppDatabase.instance.sessionDao().updateTs(updates)
-                    }
+        Timer().scheduleAtFixedRate(timerTask {
+            val now = System.currentTimeMillis()
+            val updates = clientRequestTs.filter { it.value + duration > now }
+                .map { SessionClientTsUpdate(it.key, Instant.fromEpochMilliseconds(it.value)) }
+            if (updates.isNotEmpty()) {
+                coIO {
+                    AppDatabase.instance.sessionDao().updateTs(updates)
                 }
             }
-        }, 0, duration)
+        }, duration, duration)
     }
 
     suspend fun respondTokenAsync(event: ConfirmToAcceptLoginEvent, clientIp: String) {

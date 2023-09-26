@@ -20,6 +20,8 @@ import kotlin.random.Random
 
 object CallHelper : BaseContentHelper() {
     override val uriExternal: Uri = CallLog.Calls.CONTENT_URI
+    override val idKey: String = CallLog.Calls._ID
+
     private val demoItems = mutableListOf<DCall>()
 
     override fun getProjection(): Array<String> {
@@ -92,15 +94,16 @@ object CallHelper : BaseContentHelper() {
         val cursor = getSearchCursor(context, query, limit, offset, SortBy(CallLog.Calls._ID, SortDirection.DESC))
         val items = mutableListOf<DCall>()
         if (cursor?.moveToFirst() == true) {
+            val cache = mutableMapOf<String, Int>()
             do {
-                val id = cursor.getStringValue(CallLog.Calls._ID)
-                val number = cursor.getStringValue(CallLog.Calls.NUMBER)
-                val name = cursor.getStringValue(CallLog.Calls.CACHED_NAME)
-                val photoUri = cursor.getStringValue(CallLog.Calls.CACHED_PHOTO_URI)
-                val startTS = cursor.getTimeValue(CallLog.Calls.DATE)
-                val duration = cursor.getIntValue(CallLog.Calls.DURATION)
-                val type = cursor.getIntValue(CallLog.Calls.TYPE)
-                val accountId = cursor.getStringValue(CallLog.Calls.PHONE_ACCOUNT_ID)
+                val id = cursor.getStringValue(CallLog.Calls._ID, cache)
+                val number = cursor.getStringValue(CallLog.Calls.NUMBER, cache)
+                val name = cursor.getStringValue(CallLog.Calls.CACHED_NAME, cache)
+                val photoUri = cursor.getStringValue(CallLog.Calls.CACHED_PHOTO_URI, cache)
+                val startTS = cursor.getTimeValue(CallLog.Calls.DATE, cache)
+                val duration = cursor.getIntValue(CallLog.Calls.DURATION, cache)
+                val type = cursor.getIntValue(CallLog.Calls.TYPE, cache)
+                val accountId = cursor.getStringValue(CallLog.Calls.PHONE_ACCOUNT_ID, cache)
                 items.add(DCall(id, number, name, photoUri, startTS, duration, type, accountId))
             } while (cursor.moveToNext())
         }
@@ -115,7 +118,7 @@ object CallHelper : BaseContentHelper() {
     }
 
     private fun demoSearch(): List<DCall> {
-        IntRange(1, 385).forEachIndexed { index, i ->
+        IntRange(1, 385).forEachIndexed { index, _ ->
             demoItems.add(
                 DCall(
                     (index + 658).toString(), Random.nextLong(1234567890, 9234567890).toString(),

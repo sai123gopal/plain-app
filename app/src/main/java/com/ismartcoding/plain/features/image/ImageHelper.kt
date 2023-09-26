@@ -10,9 +10,11 @@ import com.ismartcoding.lib.helpers.FilterField
 import com.ismartcoding.plain.data.DMediaBucket
 import com.ismartcoding.plain.features.BaseContentHelper
 import com.ismartcoding.plain.features.file.FileSortBy
+import com.ismartcoding.plain.features.tag.TagRelationStub
 
 object ImageHelper : BaseContentHelper() {
     override val uriExternal: Uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    override val idKey: String = MediaStore.Images.Media._ID
 
     override fun getProjection(): Array<String> {
         return arrayOf(
@@ -20,6 +22,7 @@ object ImageHelper : BaseContentHelper() {
             MediaStore.Images.Media.TITLE,
             MediaStore.Images.Media.DATA,
             MediaStore.Images.Media.SIZE,
+            MediaStore.Images.Media.BUCKET_ID,
         )
     }
 
@@ -47,12 +50,29 @@ object ImageHelper : BaseContentHelper() {
         val cursor = getSearchCursor(context, query, limit, offset, sortBy.toSortBy())
         val result = mutableListOf<DImage>()
         if (cursor?.moveToFirst() == true) {
+            val cache = mutableMapOf<String, Int>()
             do {
-                val id = cursor.getStringValue(MediaStore.Images.Media._ID)
-                val title = cursor.getStringValue(MediaStore.Images.Media.TITLE)
-                val size = cursor.getLongValue(MediaStore.Images.Media.SIZE)
-                val path = cursor.getStringValue(MediaStore.Images.Media.DATA)
-                result.add(DImage(id, title, path, size))
+                val id = cursor.getStringValue(MediaStore.Images.Media._ID, cache)
+                val title = cursor.getStringValue(MediaStore.Images.Media.TITLE, cache)
+                val size = cursor.getLongValue(MediaStore.Images.Media.SIZE, cache)
+                val path = cursor.getStringValue(MediaStore.Images.Media.DATA, cache)
+                val bucketId = cursor.getStringValue(MediaStore.Images.Media.BUCKET_ID, cache)
+                result.add(DImage(id, title, path, size, bucketId))
+            } while (cursor.moveToNext())
+        }
+        return result
+    }
+
+    fun getTagRelationStubs(context: Context, query: String): List<TagRelationStub> {
+        val cursor = getSearchCursor(context, query)
+        val result = mutableListOf<TagRelationStub>()
+        if (cursor?.moveToFirst() == true) {
+            val cache = mutableMapOf<String, Int>()
+            do {
+                val id = cursor.getStringValue(MediaStore.Images.Media._ID, cache)
+                val title = cursor.getStringValue(MediaStore.Images.Media.TITLE, cache)
+                val size = cursor.getLongValue(MediaStore.Images.Media.SIZE, cache)
+                result.add(TagRelationStub(id, title,size))
             } while (cursor.moveToNext())
         }
         return result
@@ -78,10 +98,11 @@ object ImageHelper : BaseContentHelper() {
         )
 
         cursor?.use { c ->
+            val cache = mutableMapOf<String, Int>()
             while (c.moveToNext()) {
-                val bucketId = c.getStringValue(MediaStore.Images.Media.BUCKET_ID)
-                val bucketName = c.getStringValue(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
-                val path = c.getStringValue(MediaStore.Images.Media.DATA)
+                val bucketId = c.getStringValue(MediaStore.Images.Media.BUCKET_ID, cache)
+                val bucketName = c.getStringValue(MediaStore.Images.Media.BUCKET_DISPLAY_NAME, cache)
+                val path = c.getStringValue(MediaStore.Images.Media.DATA, cache)
                 val bucket = bucketMap[bucketId]
                 if (bucket != null) {
                     if (bucket.topItems.size < 4) {

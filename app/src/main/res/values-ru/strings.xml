@@ -1,5 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Простое Приложение</string>
+    <string name="security">Безопасность</string>
+    <string name="url_token">Токен URL</string>
+    <string name="url_token_tips">Токен URL шифрует данные в URL-адресах. Если он сброшен, старые URL-адреса, зашифрованные с использованием старого токена, становятся недоступными.</string>
+    <string name="http_server_ok">HTTP-сервер запущен</string>
+    <string name="http_server_error">HTTP-сервер не запущен. Перезапустите PlainApp и попробуйте снова. Убедитесь, что нет других приложений, занимающих порты HTTP или HTTPS. Если проблема сохраняется, предоставьте более подробную информацию о проблеме, связавшись с ismartcoding@gmail.com.</string>
+    <string name="relaunch_app">Перезапустите приложение</string>
     <string name="load_no_more">Конец</string>
     <string name="list_empty">Список пуст</string>
     <string name="select_box_title">Выберите ящик</string>
@@ -444,7 +450,7 @@
     <string name="web_console_desc">Ваш ПК и мобильное устройство должны находиться в одной подсети. Для максимальной производительности вашего телефона подключите USB-адаптер к источнику питания.</string>
     <string name="fetch_content_automatically">Автоматически загружать контент</string>
     <string name="app_restored">Данные приложения восстановлены, вам нужно выйти из приложения и снова запустить его, как новое.</string>
-    <string name="welcome_text">Добро пожаловать в это приложение! Легко отправляйте текст, изображения и видео, чтобы просматривать их на ПК.</string>
+    <string name="welcome_text">Добро пожаловать! Вы можете легко отправлять текст, изображения и видео на эту страницу и просматривать их на своем компьютере.\nЕсли у вас возникнут проблемы, не стесняйтесь отправить электронное письмо на адрес ismartcoding@gmail.com для получения помощи или присоединиться к нашей дискуссии в Discord по адресу: https://discord.gg/RQWcS6DEEe.</string>
     <string name="demo_mode">Режим демонстрации</string>
     <string name="donation">Пожертвование</string>
     <string name="logs">Логи</string>
@@ -455,6 +461,7 @@
     <string name="password_type_none">Без пароля</string>
     <string name="restart_app_title">Перезапустить приложение</string>
     <string name="http_server_failed">Запуск HTTP-сервера не удался. Вам нужно выйти из приложения и затем снова открыть его.</string>
+    <string name="http_server_stopped">HTTP-сервер остановлен.</string>
     <string name="restart_app_message">Вам нужно выйти из приложения и затем снова открыть его.</string>
     <string name="keep_screen_on">Не выключать экран</string>
     <string name="cast_mode">Режим передачи</string>

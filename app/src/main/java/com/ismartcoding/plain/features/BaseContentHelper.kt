@@ -5,6 +5,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.BaseColumns
+import android.provider.ContactsContract
 import android.provider.MediaStore
 import com.ismartcoding.lib.content.ContentWhere
 import com.ismartcoding.lib.data.SortBy
@@ -23,6 +24,7 @@ import java.io.File
 
 abstract class BaseContentHelper {
     abstract val uriExternal: Uri
+    abstract val idKey: String
 
     fun getItemUri(id: String): Uri {
         return Uri.withAppendedPath(uriExternal, id)
@@ -139,6 +141,19 @@ abstract class BaseContentHelper {
         }
     }
 
+    fun getIds(context: Context, query: String): Set<String> {
+        val cursor = getSearchCursor(context, query)
+        val ids = mutableSetOf<String>()
+        if (cursor?.moveToFirst() == true) {
+            val cache = mutableMapOf<String, Int>()
+            do {
+                ids.add(cursor.getStringValue(idKey, cache))
+            } while (cursor.moveToNext())
+        }
+
+        return ids
+    }
+
     private fun getSearchCursorWithBundle(context: Context, query: String, limit: Int, offset: Int, sortBy: SortBy): Cursor? {
         return try {
             val where = getWhere(query)
@@ -165,6 +180,14 @@ abstract class BaseContentHelper {
         )
     }
 
+    protected fun getSearchCursor(context: Context, query: String): Cursor? {
+        val where = getWhere(query)
+        return context.contentResolver.query(
+            uriExternal, getProjection(),
+            where.toSelection(), where.args.toTypedArray(), null
+        )
+    }
+
     open fun deleteByIds(context: Context, ids: Set<String>) {
         ids.chunked(500).forEach { chunk ->
             val selection = "${BaseColumns._ID} IN (${StringHelper.getQuestionMarks(chunk.size)})"
@@ -178,36 +201,39 @@ abstract class BaseContentHelper {
     }
 
     fun deleteRecordsAndFilesByIds(context: Context, ids: Set<String>): Set<String> {
-        val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATA)
-        val where = ContentWhere()
-        where.addIn(MediaStore.MediaColumns._ID, ids.toList())
-        var deletedCount = 0
-        val cursor = context.contentResolver.query(
-            uriExternal, projection, where.toSelection(),
-            where.args.toTypedArray(), null
-        )
         val paths = mutableSetOf<String>()
-        if (cursor != null) {
-            cursor.moveToFirst()
-            while (!cursor.isAfterLast) {
-                val id = cursor.getStringValue(MediaStore.MediaColumns._ID)
-                val path = cursor.getStringValue(MediaStore.MediaColumns.DATA)
-                paths.add(path)
-                try { // File.delete can throw a security exception
-                    val f = File(path)
-                    if (f.deleteRecursively()) {
-                        context.contentResolver.delete(
-                            getItemUri(id), null, null
-                        )
-                        deletedCount++
+        ids.chunked(500).forEach { chunk ->
+            val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATA)
+            val where = ContentWhere()
+            where.addIn(MediaStore.MediaColumns._ID, chunk)
+            var deletedCount = 0
+            val cursor = context.contentResolver.query(
+                uriExternal, projection, where.toSelection(),
+                where.args.toTypedArray(), null
+            )
+            if (cursor != null) {
+                cursor.moveToFirst()
+                val cache = mutableMapOf<String, Int>()
+                while (!cursor.isAfterLast) {
+                    val id = cursor.getStringValue(MediaStore.MediaColumns._ID, cache)
+                    val path = cursor.getStringValue(MediaStore.MediaColumns.DATA, cache)
+                    paths.add(path)
+                    try { // File.delete can throw a security exception
+                        val f = File(path)
+                        if (f.deleteRecursively()) {
+                            context.contentResolver.delete(
+                                getItemUri(id), null, null
+                            )
+                            deletedCount++
+                        }
+                        cursor.moveToNext()
+                    } catch (ex: Exception) {
+                        cursor.moveToNext()
+                        LogCat.e(ex.toString())
                     }
-                    cursor.moveToNext()
-                } catch (ex: Exception) {
-                    cursor.moveToNext()
-                    LogCat.e(ex.toString())
                 }
+                cursor.close()
             }
-            cursor.close()
         }
 
         return paths

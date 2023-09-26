@@ -1,10 +1,8 @@
 package com.ismartcoding.plain.web
 
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import com.ismartcoding.lib.channel.sendEvent
-import com.ismartcoding.lib.extensions.getBitmapAsync
 import com.ismartcoding.lib.extensions.getFinalPath
 import com.ismartcoding.lib.extensions.isImageFast
 import com.ismartcoding.lib.extensions.newFile
@@ -16,7 +14,6 @@ import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.JsonHelper
 import com.ismartcoding.lib.helpers.ZipHelper
-import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.lib.upnp.UPnPController
 import com.ismartcoding.plain.BuildConfig
@@ -24,13 +21,19 @@ import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.data.DownloadFileItem
 import com.ismartcoding.plain.data.DownloadFileItemWrap
+import com.ismartcoding.plain.data.UploadInfo
+import com.ismartcoding.plain.data.enums.DataType
 import com.ismartcoding.plain.data.enums.PasswordType
 import com.ismartcoding.plain.data.preference.AuthTwoFactorPreference
 import com.ismartcoding.plain.data.preference.PasswordPreference
 import com.ismartcoding.plain.data.preference.PasswordTypePreference
 import com.ismartcoding.plain.features.ConfirmToAcceptLoginEvent
+import com.ismartcoding.plain.features.audio.AudioHelper
+import com.ismartcoding.plain.features.file.FileSortBy
+import com.ismartcoding.plain.features.image.ImageHelper
 import com.ismartcoding.plain.features.media.CastPlayer
-import com.ismartcoding.plain.helpers.FileHelper
+import com.ismartcoding.plain.features.pkg.PackageHelper
+import com.ismartcoding.plain.features.video.VideoHelper
 import com.ismartcoding.plain.helpers.TempHelper
 import com.ismartcoding.plain.helpers.UrlHelper
 import com.ismartcoding.plain.web.websocket.WebSocketSession
@@ -84,11 +87,9 @@ import io.ktor.websocket.send
 import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.net.URLEncoder
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.util.Date
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -188,7 +189,7 @@ fun Application.module() {
                 return@get
             }
 
-            val path = FileHelper.getFilePath(id)
+            val path = UrlHelper.decrypt(id)
             val folder = File(path)
             if (!folder.exists() || !folder.isDirectory) {
                 call.respond(HttpStatusCode.NotFound)
@@ -206,43 +207,80 @@ fun Application.module() {
         }
 
         get("/zip/files") {
-            val q = call.request.queryParameters
-            val id = q["id"] ?: ""
+            val query = call.request.queryParameters
+            val id = query["id"] ?: ""
             if (id.isEmpty()) {
                 call.respond(HttpStatusCode.BadRequest)
                 return@get
             }
 
-            val value = TempHelper.getValue(id)
-            TempHelper.clearValue(id)
-            if (value.isEmpty()) {
-                call.respond(HttpStatusCode.NotFound)
-                return@get
-            }
+            try {
+                val json = JSONObject(UrlHelper.decrypt(id))
+                var paths: List<DownloadFileItem> = arrayListOf()
+                val type = json.optString("type")
+                if (type.isEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest)
+                    return@get
+                }
 
-            val paths = JSONArray(value).parse { DownloadFileItem(it.optString("path"), it.optString("name")) }
-            val items = paths.map { DownloadFileItemWrap(File(it.path), it.name) }.filter { it.file.exists() }
-            val dirs = items.filter { it.file.isDirectory }
-            val fileName = URLEncoder.encode(q["name"] ?: "download.zip", "UTF-8")
-            call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
-            call.response.header(HttpHeaders.ContentType, ContentType.Application.Zip.toString())
-            call.respondOutputStream(ContentType.Application.Zip) {
-                ZipOutputStream(this).use { zip ->
-                    items.forEach { item ->
-                        if (dirs.any { item.file.absolutePath != it.file.absolutePath && item.file.absolutePath.startsWith(it.file.absolutePath) }) {
-                        } else {
-                            val filePath = item.name.ifEmpty { item.file.name }
-                            if (item.file.isDirectory) {
-                                zip.putNextEntry(ZipEntry("$filePath/"))
-                                ZipHelper.zipFolderToStreamAsync(item.file, zip, filePath)
+                val q = json.optString("query")
+                val context = MainApp.instance
+                when (type) {
+                    DataType.PACKAGE.name -> {
+                        paths = PackageHelper.search(q, Int.MAX_VALUE, 0).map { DownloadFileItem(it.path, "${it.name.replace(" ", "")}-${it.id}.apk") }
+                    }
+
+                    DataType.VIDEO.name -> {
+                        paths = VideoHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                    }
+
+                    DataType.AUDIO.name -> {
+                        paths = AudioHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                    }
+
+                    DataType.IMAGE.name -> {
+                        paths = ImageHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                    }
+
+                    DataType.FILE.name -> {
+                        val tmpId = json.optString("id")
+                        val value = TempHelper.getValue(tmpId)
+                        TempHelper.clearValue(tmpId)
+                        if (value.isEmpty()) {
+                            call.respond(HttpStatusCode.NotFound)
+                            return@get
+                        }
+
+                        paths = JSONArray(value).parse { DownloadFileItem(it.optString("path"), it.optString("name")) }
+                    }
+                }
+
+                val items = paths.map { DownloadFileItemWrap(File(it.path), it.name) }.filter { it.file.exists() }
+                val dirs = items.filter { it.file.isDirectory }
+                val fileName = URLEncoder.encode(json.optString("name").ifEmpty { "download.zip" }, "UTF-8")
+                call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
+                call.response.header(HttpHeaders.ContentType, ContentType.Application.Zip.toString())
+                call.respondOutputStream(ContentType.Application.Zip) {
+                    ZipOutputStream(this).use { zip ->
+                        items.forEach { item ->
+                            if (dirs.any { item.file.absolutePath != it.file.absolutePath && item.file.absolutePath.startsWith(it.file.absolutePath) }) {
                             } else {
-                                zip.putNextEntry(ZipEntry(filePath))
-                                item.file.inputStream().copyTo(zip)
+                                val filePath = item.name.ifEmpty { item.file.name }
+                                if (item.file.isDirectory) {
+                                    zip.putNextEntry(ZipEntry("$filePath/"))
+                                    ZipHelper.zipFolderToStreamAsync(item.file, zip, filePath)
+                                } else {
+                                    zip.putNextEntry(ZipEntry(filePath))
+                                    item.file.inputStream().copyTo(zip)
+                                }
+                                zip.closeEntry()
                             }
-                            zip.closeEntry()
                         }
                     }
                 }
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+                call.respond(HttpStatusCode.BadRequest, ex.message ?: "")
             }
         }
 
@@ -255,7 +293,7 @@ fun Application.module() {
             }
             try {
                 val context = MainApp.instance
-                val path = FileHelper.getFilePath(id).getFinalPath(context)
+                val path = UrlHelper.decrypt(id).getFinalPath(context)
                 if (path.startsWith("content://")) {
                     val bytes = context.contentResolver.openInputStream(Uri.parse(path))?.buffered()?.use { it.readBytes() }
                     if (bytes != null) {
@@ -336,46 +374,85 @@ fun Application.module() {
                 return@post
             }
             try {
-                var dir = ""
-                var replace = false
+                lateinit var info: UploadInfo
                 var fileName = ""
                 call.receiveMultipart().forEachPart { part ->
-                    part as PartData.FileItem
-                    when (part.name) {
-                        "info" -> {
-                            var requestStr = ""
-                            val decryptedBytes = CryptoHelper.aesDecrypt(token, part.streamProvider().readBytes())
-                            if (decryptedBytes != null) {
-                                requestStr = decryptedBytes.decodeToString()
+                    when (part) {
+                        is PartData.FileItem -> {
+                            when (part.name) {
+                                "info" -> {
+                                    var requestStr = ""
+                                    val decryptedBytes = CryptoHelper.aesDecrypt(token, part.streamProvider().readBytes())
+                                    if (decryptedBytes != null) {
+                                        requestStr = decryptedBytes.decodeToString()
+                                    }
+                                    if (requestStr.isEmpty()) {
+                                        call.response.status(HttpStatusCode.Unauthorized)
+                                        return@forEachPart
+                                    }
+
+                                    info = Json.decodeFromString<UploadInfo>(requestStr)
+                                }
+
+                                "file" -> {
+                                    fileName = part.originalFileName as String
+                                    if (info.dir.isEmpty() || fileName.isEmpty()) {
+                                        call.respond(HttpStatusCode.BadRequest)
+                                        return@forEachPart
+                                    }
+                                    File(info.dir).mkdirs()
+                                    var destFile = File("${info.dir}/${fileName}")
+                                    if (info.index == 0 && destFile.exists()) {
+                                        if (info.replace) {
+                                            destFile.delete()
+                                        } else {
+                                            destFile = destFile.newFile()
+                                            fileName = destFile.name
+                                        }
+                                    }
+
+                                    // use append file way
+                                    val noSplitFiles = false
+                                    if (noSplitFiles) {
+                                        FileOutputStream(destFile, true).use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                        if (info.total - 1 == info.index) {
+                                            MainApp.instance.scanFileByConnection(destFile, null)
+                                        }
+                                    } else {
+                                        if (info.total > 1) {
+                                            destFile = File("${info.dir}/${fileName}.part${String.format("%03d", info.index)}")
+                                            if (destFile.exists() && destFile.length() == info.size) {
+                                                // skip if the part file is already uploaded
+                                            } else {
+                                                destFile.outputStream().use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                            }
+                                        } else {
+                                            destFile.outputStream().use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                        }
+
+                                        if (info.total - 1 == info.index) {
+                                            if (info.total > 1) {
+                                                // merge part files into original file
+                                                destFile = File("${info.dir}/${fileName}")
+                                                val partFiles = File(info.dir).listFiles()?.filter { it.name.startsWith("$fileName.part") }?.sortedBy { it.name } ?: arrayListOf()
+                                                val fos = FileOutputStream(destFile, true)
+                                                partFiles.forEach {
+                                                    it.inputStream().use { input -> input.copyTo(fos) }
+                                                    it.delete()
+                                                }
+                                            }
+                                            MainApp.instance.scanFileByConnection(destFile, null)
+                                        }
+                                    }
+                                }
+
+                                else -> {}
                             }
-                            if (requestStr.isEmpty()) {
-                                call.response.status(HttpStatusCode.Unauthorized)
-                                return@forEachPart
-                            }
-                            val json = JSONObject(requestStr)
-                            dir = json.optString("dir")
-                            replace = json.optBoolean("replace")
                         }
 
-                        "file" -> {
-                            fileName = part.originalFileName as String
-                            if (dir.isEmpty() || fileName.isEmpty()) {
-                                call.respond(HttpStatusCode.BadRequest)
-                                return@forEachPart
-                            }
-                            File(dir).mkdirs()
-                            val file = File("${dir}/${fileName}")
-                            var path = file.toPath()
-                            if (!replace && file.exists()) {
-                                val newFile = file.newFile()
-                                fileName = newFile.name
-                                path = newFile.toPath()
-                            }
-                            Files.copy(part.streamProvider(), path, StandardCopyOption.REPLACE_EXISTING)
-                            MainApp.instance.scanFileByConnection(file, null)
+                        else -> {
+                            part.dispose()
                         }
-
-                        else -> {}
                     }
                 }
                 call.respond(HttpStatusCode.Created, fileName)

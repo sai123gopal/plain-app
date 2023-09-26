@@ -1,5 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">PlainApp</string>
+    <string name="security">セキュリティ</string>
+    <string name="url_token">URLトークン</string>
+    <string name="url_token_tips">URLトークンはURL内のデータを暗号化します。リセットされると、古いトークンで暗号化されたURLはアクセスできなくなります。</string>
+    <string name="http_server_ok">HTTPサーバーが起動しました</string>
+    <string name="http_server_error">HTTPサーバーが起動していません。PlainAppを再起動して、もう一度試してみてください。HTTPまたはHTTPSポートを占有している他のアプリケーションがないことを確認してください。問題が解決しない場合は、ismartcoding@gmail.com に連絡して問題の詳細を提供してください。</string>
+    <string name="relaunch_app">アプリを再起動</string>
     <string name="load_no_more">終わり</string>
     <string name="list_empty">リストは空です</string>
     <string name="select_box_title">ボックスを選択</string>
@@ -444,7 +450,7 @@
     <string name="web_console_desc">PCとモバイルデバイスは同じサブネット内にある必要があります。スマートフォンのパフォーマンスを最大限に活用するには、USBアダプターを電源に接続してください。</string>
     <string name="fetch_content_automatically">コンテンツを自動的に取得</string>
     <string name="app_restored">アプリのデータが復元されました。新しい状態でアプリを再起動する必要があります。</string>
-    <string name="welcome_text">このアプリへようこそ！テキスト、画像、動画を簡単に送信してPCで表示できます。</string>
+    <string name="welcome_text">ようこそ！このページにテキスト、画像、動画を簡単に送信し、コンピュータで表示することができます。\n問題が発生した場合は、お手伝いが必要な場合はismartcoding@gmail.comにメールを送信するか、次のDiscordのディスカッションに参加してください：https://discord.gg/RQWcS6DEEe。</string>
     <string name="demo_mode">デモモード</string>
     <string name="donation">寄付</string>
     <string name="logs">ログ</string>
@@ -455,6 +461,7 @@
     <string name="password_type_none">パスワードなし</string>
     <string name="restart_app_title">アプリを再起動</string>
     <string name="http_server_failed">HTTPサーバーの起動に失敗しました。アプリを強制終了してから再度開いてください。</string>
+    <string name="http_server_stopped">HTTPサーバーが停止しました。</string>
     <string name="restart_app_message">アプリを強制終了してから再度開いてください。</string>
     <string name="keep_screen_on">画面を常にオンにする</string>
     <string name="cast_mode">キャストモード</string>

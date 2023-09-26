@@ -160,7 +160,6 @@ class ScreenMirrorService : LifecycleService() {
         mImageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         mMediaProjection?.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
-                stop()
             }
         }, null)
         mVirtualDisplay = mMediaProjection?.createVirtualDisplay(
@@ -182,7 +181,7 @@ class ScreenMirrorService : LifecycleService() {
 
                     mBitmap = Bitmap.createBitmap(newWidth, height, Bitmap.Config.ARGB_8888)
                     mBitmap?.copyPixelsFromBuffer(buffer)
-                    if (mBitmap != null) {
+                    if (mBitmap != null && instance != null) {
                         sendEvent(WebSocketEvent(EventType.SCREEN_MIRRORING, bitmapToBase64Image(mBitmap!!, newWidth, height), false))
                     }
                     image.close()

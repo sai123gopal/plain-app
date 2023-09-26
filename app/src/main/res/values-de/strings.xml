@@ -1,5 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">EinfacheApp</string>
+    <string name="security">Sicherheit</string>
+    <string name="url_token">URL-Token</string>
+    <string name="url_token_tips">Das URL-Token verschlüsselt Daten in URLs. Wenn es zurückgesetzt wird, werden alte, tokenverschlüsselte URLs unzugänglich.</string>
+    <string name="http_server_ok">HTTP-Server läuft</string>
+    <string name="http_server_error">Der HTTP-Server ist nicht gestartet. Starten Sie die PlainApp erneut und versuchen Sie es erneut. Stellen Sie sicher, dass keine anderen Apps die HTTP- oder HTTPS-Ports belegen. Wenn das Problem weiterhin besteht, geben Sie bitte weitere Details zum Problem an, indem Sie ismartcoding@gmail.com kontaktieren.</string>
+    <string name="relaunch_app">App neu starten</string>
     <string name="load_no_more">Ende</string>
     <string name="list_empty">Liste ist leer</string>
     <string name="select_box_title">Wähle eine Box</string>
@@ -444,7 +450,7 @@
     <string name="web_console_desc">Ihr PC und Ihr Mobilgerät müssen sich im gleichen Subnetz befinden. Um die Leistung Ihres Telefons zu maximieren, schließen Sie bitte den USB-Adapter an eine Stromquelle an.</string>
     <string name="fetch_content_automatically">Inhalt automatisch abrufen</string>
     <string name="app_restored">APP-Daten wurden wiederhergestellt. Sie müssen die App zwangsweise beenden und die App erneut als neu starten.</string>
-    <string name="welcome_text">Willkommen bei dieser App! Senden Sie Texte, Bilder und Videos einfach, um sie auf Ihrem PC anzuzeigen.</string>
+    <string name="welcome_text">Willkommen! Sie können ganz einfach Text, Bilder und Videos auf dieser Seite senden und sie auf Ihrem Computer anzeigen.\nWenn Sie auf Probleme stoßen, senden Sie bitte eine E-Mail an ismartcoding@gmail.com, um Unterstützung zu erhalten, oder nehmen Sie an unserer Discord-Diskussion teil unter: https://discord.gg/RQWcS6DEEe.</string>
     <string name="demo_mode">Demo-Modus</string>
     <string name="donation">Spende</string>
     <string name="logs">Protokolle</string>
@@ -455,6 +461,7 @@
     <string name="password_type_none">Kein Passwort</string>
     <string name="restart_app_title">App neu starten</string>
     <string name="http_server_failed">Der HTTP-Server konnte nicht gestartet werden. Sie müssen die App zwangsweise beenden und die App dann erneut öffnen.</string>
+    <string name="http_server_stopped">Der HTTP-Server wurde gestoppt.</string>
     <string name="restart_app_message">Sie müssen die App zwangsweise beenden und die App dann erneut öffnen.</string>
     <string name="keep_screen_on">Bildschirm eingeschaltet lassen</string>
     <string name="cast_mode">Gussmodus</string>

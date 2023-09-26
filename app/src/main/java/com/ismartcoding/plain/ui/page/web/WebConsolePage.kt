@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,6 +63,7 @@ import com.ismartcoding.plain.features.PermissionResultEvent
 import com.ismartcoding.plain.features.Permissions
 import com.ismartcoding.plain.features.RequestPermissionEvent
 import com.ismartcoding.plain.features.locale.LocaleHelper
+import com.ismartcoding.plain.helpers.AppHelper
 import com.ismartcoding.plain.packageManager
 import com.ismartcoding.plain.ui.base.*
 import com.ismartcoding.plain.ui.extensions.navigate
@@ -69,7 +71,6 @@ import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.ui.models.SharedViewModel
 import com.ismartcoding.plain.ui.models.WebConsoleViewModel
 import com.ismartcoding.plain.ui.page.RouteName
-import com.ismartcoding.plain.ui.theme.palette.onDark
 import com.ismartcoding.plain.ui.theme.backColor
 import com.ismartcoding.plain.ui.theme.cardBackColor
 import com.ismartcoding.plain.web.HttpServerManager
@@ -125,11 +126,9 @@ fun WebConsolePage(
             PDropdownMenu(expanded = isMenuOpen, onDismissRequest = { isMenuOpen = false }, content = {
                 DropdownMenuItem(onClick = {
                     isMenuOpen = false
-                    sharedViewModel.textTitle.value = context.getString(R.string.https_certificate_signature)
-                    sharedViewModel.textContent.value = HttpServerManager.getSSLSignature(context).joinToString(" ") { "%02x".format(it).uppercase() }
-                    navController.navigate(RouteName.TEXT)
+                    navController.navigate(RouteName.WEB_SECURITY)
                 }, text = {
-                    Text(text = stringResource(R.string.https_certificate_signature))
+                    Text(text = stringResource(R.string.security))
                 })
                 DropdownMenuItem(onClick = {
                     isMenuOpen = false
@@ -149,13 +148,15 @@ fun WebConsolePage(
                 item {
                     val errorMessage = if (HttpServerManager.httpServerError.isNotEmpty()) {
                         HttpServerManager.httpServerError
-                    } else if (webConsole && MainApp.instance.httpServer == null) {
+                    } else if (webConsole && HttpServerManager.stoppedByUser) {
+                        stringResource(id = R.string.http_server_stopped)
+                    } else if (webConsole && HttpServerManager.httpServer == null) {
                         stringResource(id = R.string.http_server_failed)
                     } else {
                         ""
                     }
                     if (errorMessage.isNotEmpty()) {
-                        Box(
+                        Column(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .fillMaxWidth()
@@ -164,10 +165,18 @@ fun WebConsolePage(
                                 )
                         ) {
                             Text(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
                                 text = errorMessage,
                                 color = MaterialTheme.colorScheme.error,
                             )
+                            Row(modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                MiniOutlineButton(
+                                    text = stringResource(R.string.relaunch_app),
+                                    onClick = {
+                                        AppHelper.relaunch(context)
+                                    },
+                                )
+                            }
                         }
                     }
                     DisplayText(
@@ -301,7 +310,7 @@ fun WebConsolePage(
                         }
                     }
                     DialogHelper.showConfirmDialog(context, context.getString(R.string.restart_app_title), context.getString(R.string.restart_app_message)) {
-                        triggerRebirth(context)
+                        AppHelper.relaunch(context)
                     }
                 }
             }) {
@@ -399,12 +408,4 @@ fun BrowserPreview(context: Context, isHttps: Boolean, httpPort: Int, httpsPort:
         )
         Spacer(modifier = Modifier.height(24.dp))
     }
-}
-
-private fun triggerRebirth(context: Context) {
-    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-    val componentName = intent!!.component
-    val mainIntent = Intent.makeRestartActivityTask(componentName)
-    context.startActivity(mainIntent)
-    Runtime.getRuntime().exit(0)
 }

@@ -15,7 +15,7 @@ import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.data.enums.ActionSourceType
 import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.TagType
+import com.ismartcoding.plain.data.enums.DataType
 import com.ismartcoding.plain.db.DFeed
 import com.ismartcoding.plain.db.DTag
 import com.ismartcoding.plain.features.ActionEvent
@@ -97,7 +97,7 @@ fun RecyclerView.initDrawerMenu() {
                                 withIO {
                                     val entryIds = FeedEntryHelper.feedEntryDao.getIds(ids)
                                     if (entryIds.isNotEmpty()) {
-                                        TagHelper.deleteTagRelationByKeys(entryIds.toSet(), TagType.FEED_ENTRY)
+                                        TagHelper.deleteTagRelationByKeys(entryIds.toSet(), DataType.FEED_ENTRY)
                                         FeedEntryHelper.feedEntryDao.deleteByFeedIds(ids)
                                     }
                                     FeedHelper.deleteAsync(ids)
@@ -199,7 +199,7 @@ suspend fun RecyclerView.updateDrawerMenuAsync(
         iconId = R.drawable.ic_history
     })
     val context = MainApp.instance
-    groups.add(MenuItemModel(FileSystemHelper.getInternalStoragePath(context)).apply {
+    groups.add(MenuItemModel(FileSystemHelper.getInternalStoragePath()).apply {
         isChecked = viewModel.type == FilesType.INTERNAL_STORAGE
         title = FileSystemHelper.getInternalStorageName(context)
         iconId = R.drawable.ic_storage

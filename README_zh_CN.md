@@ -59,20 +59,38 @@ Discord: https://discord.gg/RQWcS6DEEe
 
 ## 截图
 
-| ![sound meter](screenshots/1.jpeg)    | ![files](screenshots/2.jpeg)            | ![web](screenshots/3.jpeg)                    | ![notes](screenshots/4.jpeg)              |
-|---------------------------------------|-----------------------------------------|-----------------------------------------------|-------------------------------------------|
-| ![audio](screenshots/5.jpeg)         | ![images](screenshots/6.jpeg)           | ![videos](screenshots/7.jpeg)                 | ![rss](screenshots/8.jpeg)                |
-| ![home](screenshots/web-home.png)     | ![images](screenshots/web-images.png)   | ![videos](screenshots/web-videos.png)         | ![notes](screenshots/web-notes.png)       |
-| ![files](screenshots/web-files.png)   | ![chatgpt](screenshots/web-chatgpt.png) | ![messages](screenshots/web-messages.png)     | ![contacts](screenshots/web-contacts.png) |
-| ![audio](screenshots/web-audios.png) | ![rss](screenshots/web-rss.png)         | ![encryption](screenshots/web-encryption.png) |                                           |
+| ![sound meter](screenshots/1.jpeg)   | ![files](screenshots/2.jpeg)            | ![web](screenshots/3.jpeg)                    | ![notes](screenshots/4.jpeg)                     |
+|--------------------------------------|-----------------------------------------|-----------------------------------------------|--------------------------------------------------|
+| ![audio](screenshots/5.jpeg)         | ![images](screenshots/6.jpeg)           | ![videos](screenshots/7.jpeg)                 | ![rss](screenshots/8.jpeg)                       |
+| ![home](screenshots/web-home.png)    | ![images](screenshots/web-images.png)   | ![videos](screenshots/web-videos.png)         | ![notes](screenshots/web-notes.png)              |
+| ![files](screenshots/web-files.png)  | ![chatgpt](screenshots/web-chatgpt.png) | ![messages](screenshots/web-messages.png)     | ![contacts](screenshots/web-contacts.png)        |
+| ![audio](screenshots/web-audios.png) | ![rss](screenshots/web-rss.png)         | ![encryption](screenshots/web-encryption.png) | ![encryption](screenshots/web-screen-mirror.png) |
+| ![audio](screenshots/web-image.png)  | ![rss](screenshots/web-video.png)       | ![encryption](screenshots/web-calls.png)      |                                                  |
 
 ## 兼容性
 
 简朴需要安卓9.0或更高版本。
 
+##  计划
+
+-   ❌ 未开始
+-   🟡 开发中
+-   ✅ 已完成
+
+| 功能            | WEB | APP |
+|---------------|:---:|:--:|
+| Material you主题 | 🟡  | 🟡 |
+| 通过网页链接分享文件    | ❌  | ❌  |
+| 装有 PlainApp 的手机之间互发消息(蓝牙、Wi-Fi)    | ❌  | ❌  |
+| 翻译字典    | ❌  | ❌  |
+| 书籍    | ❌  | ❌  |
+| 待办事项    | ❌  | ❌  |
+
+最终目标是将智能手机变成个人数据和知识管理器，每个人都能够轻松地通过PlainApp互相共享知识和数据。
+
 ## 支持
 
-如果您遇到任何问题，请随时在 GitHub 上提交一个问题。我乐意提供帮助。
+如果您遇到任何问题，请随时在 GitHub 上提交一个问题。我乐意提供帮助。请不要随意给一星评价。
 
 ## 从PlainBox下载GraphQL模版
 
