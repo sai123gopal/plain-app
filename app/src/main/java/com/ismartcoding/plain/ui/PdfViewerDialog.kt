@@ -1,5 +1,6 @@
 package com.ismartcoding.plain.ui
 
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -13,10 +14,13 @@ import com.ismartcoding.plain.databinding.DialogPdfViewerBinding
 import com.ismartcoding.plain.ui.extensions.onBack
 import kotlinx.coroutines.launch
 
-class PdfViewerDialog(val uri: Uri) : BaseDialog<DialogPdfViewerBinding>(),
+class PdfViewerDialog(val uri: Uri) :
+    BaseDialog<DialogPdfViewerBinding>(),
     OnPageErrorListener {
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun onViewCreated(
+        view: View,
+        savedInstanceState: Bundle?,
+    ) {
         super.onViewCreated(view, savedInstanceState)
         binding.topAppBar.run {
             title = uri.getFileName(requireContext())
@@ -26,6 +30,8 @@ class PdfViewerDialog(val uri: Uri) : BaseDialog<DialogPdfViewerBinding>(),
         }
 
         lifecycleScope.launch {
+            val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            val darkMode = nightModeFlags == Configuration.UI_MODE_NIGHT_YES
             binding.pdfView.fromUri(uri)
                 .defaultPage(0)
                 .enableAnnotationRendering(true)
@@ -33,11 +39,15 @@ class PdfViewerDialog(val uri: Uri) : BaseDialog<DialogPdfViewerBinding>(),
                 .spacing(10)
                 .onPageError(this@PdfViewerDialog)
                 .pageFitPolicy(FitPolicy.BOTH)
+                .nightMode(darkMode)
                 .load()
         }
     }
 
-    override fun onPageError(page: Int, t: Throwable?) {
+    override fun onPageError(
+        page: Int,
+        t: Throwable?,
+    ) {
         LogCat.e(page.toString())
     }
 }

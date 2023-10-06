@@ -9,7 +9,9 @@ data class App(
     val externalFilesDir: String,
     val deviceName: String,
     val battery: Int,
-    val version: String,
+    val appVersion: Int,
+    val osVersion: Int,
+    val isPro: Boolean,
     val permissions: List<Permission>,
     val audios: List<PlaylistAudio>,
     val audioMode: MediaPlayMode,
@@ -18,5 +20,5 @@ data class App(
     val sdcardPath: String,
     val usbDiskPaths: List<String>,
     val internalStoragePath: String,
-    val downloadsDir: String
+    val downloadsDir: String,
 )

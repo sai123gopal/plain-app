@@ -11,37 +11,40 @@ import com.ismartcoding.plain.web.models.ContentItemInput
 import com.ismartcoding.plain.web.models.OrganizationInput
 import java.util.ArrayList
 
-data class ContentItem(var value: String, var type: Int, var label: String)
-data class Organization(var company: String, var title: String)
-data class PhoneNumber(var value: String, var type: Int, var label: String, var normalizedNumber: String)
+data class DContentItem(var value: String, var type: Int, var label: String)
+
+data class DOrganization(var company: String, var title: String)
+
+data class DPhoneNumber(var value: String, var type: Int, var label: String, var normalizedNumber: String)
 
 data class Content(
-    val events: MutableList<ContentItem> = ArrayList(),
-    val websites: MutableList<ContentItem> = ArrayList(),
-    val phoneNumbers: MutableList<PhoneNumber> = ArrayList(),
-    val emails: MutableList<ContentItem> = ArrayList(),
-    val addresses: MutableList<ContentItem> = ArrayList(),
+    val events: MutableList<DContentItem> = ArrayList(),
+    val websites: MutableList<DContentItem> = ArrayList(),
+    val phoneNumbers: MutableList<DPhoneNumber> = ArrayList(),
+    val emails: MutableList<DContentItem> = ArrayList(),
+    val addresses: MutableList<DContentItem> = ArrayList(),
     val nicknames: MutableList<String> = ArrayList(),
-    val ims: MutableList<ContentItem> = ArrayList(),
-    val organizations: MutableList<Organization> = ArrayList(),
+    val ims: MutableList<DContentItem> = ArrayList(),
+    val organizations: MutableList<DOrganization> = ArrayList(),
     val notes: MutableList<String> = ArrayList(),
-    val groupIds: MutableList<Int> = ArrayList()
+    val groupIds: MutableList<Int> = ArrayList(),
 )
 
 object ContentHelper {
     fun getMap(context: Context): Map<String, Content> {
         val map = mutableMapOf<String, Content>()
         val uri = ContactsContract.Data.CONTENT_URI
-        val projection = arrayOf(
-            ContactsContract.Data.RAW_CONTACT_ID,
-            ContactsContract.Data.MIMETYPE,
-            ContactsContract.Data.DATA1,
-            ContactsContract.Data.DATA2,
-            ContactsContract.Data.DATA3,
-            ContactsContract.Data.DATA4,
-            ContactsContract.Data.DATA5,
-            ContactsContract.Data.DATA6,
-        )
+        val projection =
+            arrayOf(
+                ContactsContract.Data.RAW_CONTACT_ID,
+                ContactsContract.Data.MIMETYPE,
+                ContactsContract.Data.DATA1,
+                ContactsContract.Data.DATA2,
+                ContactsContract.Data.DATA3,
+                ContactsContract.Data.DATA4,
+                ContactsContract.Data.DATA5,
+                ContactsContract.Data.DATA6,
+            )
 
         context.queryCursor(uri, projection) { cursor, cache ->
             val id = cursor.getStringValue(ContactsContract.Data.RAW_CONTACT_ID, cache)
@@ -54,32 +57,32 @@ object ContentHelper {
                     val startDate = cursor.getStringValue(ContactsContract.CommonDataKinds.Event.START_DATE, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.Event.TYPE, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.Event.LABEL, cache)
-                    map[id]?.events?.add(ContentItem(startDate, type, label))
+                    map[id]?.events?.add(DContentItem(startDate, type, label))
                 }
                 ContactsContract.CommonDataKinds.StructuredPostal.CONTENT_ITEM_TYPE -> {
                     val address = cursor.getStringValue(ContactsContract.CommonDataKinds.StructuredPostal.FORMATTED_ADDRESS, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.StructuredPostal.TYPE, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.StructuredPostal.LABEL, cache)
-                    map[id]?.addresses?.add(ContentItem(address, type, label))
+                    map[id]?.addresses?.add(DContentItem(address, type, label))
                 }
                 ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE -> {
                     val email = cursor.getStringValue(ContactsContract.CommonDataKinds.Email.DATA, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.Email.TYPE, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.Email.LABEL, cache)
-                    map[id]?.emails?.add(ContentItem(email, type, label))
+                    map[id]?.emails?.add(DContentItem(email, type, label))
                 }
                 ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> {
                     val number = cursor.getStringValue(ContactsContract.CommonDataKinds.Phone.NUMBER, cache)
                     val normalizedNumber = cursor.getStringValue(ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.Phone.TYPE, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.Phone.LABEL, cache)
-                    map[id]?.phoneNumbers?.add(PhoneNumber(number, type, label, normalizedNumber))
+                    map[id]?.phoneNumbers?.add(DPhoneNumber(number, type, label, normalizedNumber))
                 }
                 ContactsContract.CommonDataKinds.Website.CONTENT_ITEM_TYPE -> {
                     val url = cursor.getStringValue(ContactsContract.CommonDataKinds.Website.URL, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.Website.TYPE, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.Website.LABEL, cache)
-                    map[id]?.websites?.add(ContentItem(url, type, label))
+                    map[id]?.websites?.add(DContentItem(url, type, label))
                 }
                 ContactsContract.CommonDataKinds.Nickname.CONTENT_ITEM_TYPE -> {
                     val name = cursor.getStringValue(ContactsContract.CommonDataKinds.Nickname.NAME, cache)
@@ -89,7 +92,7 @@ object ContentHelper {
                     val value = cursor.getStringValue(ContactsContract.CommonDataKinds.Im.DATA, cache)
                     val type = cursor.getIntValue(ContactsContract.CommonDataKinds.Im.PROTOCOL, cache)
                     val label = cursor.getStringValue(ContactsContract.CommonDataKinds.Im.CUSTOM_PROTOCOL, cache)
-                    map[id]?.ims?.add(ContentItem(value, type, label))
+                    map[id]?.ims?.add(DContentItem(value, type, label))
                 }
                 ContactsContract.CommonDataKinds.Note.CONTENT_ITEM_TYPE -> {
                     val note = cursor.getStringValue(ContactsContract.CommonDataKinds.Note.NOTE, cache)
@@ -98,7 +101,7 @@ object ContentHelper {
                 ContactsContract.CommonDataKinds.Organization.CONTENT_ITEM_TYPE -> {
                     val company = cursor.getStringValue(ContactsContract.CommonDataKinds.Organization.COMPANY, cache)
                     val title = cursor.getStringValue(ContactsContract.CommonDataKinds.Organization.TITLE, cache)
-                    map[id]?.organizations?.add(Organization(company, title))
+                    map[id]?.organizations?.add(DOrganization(company, title))
                 }
                 ContactsContract.CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE -> {
                     val groupId = cursor.getIntValue(ContactsContract.CommonDataKinds.GroupMembership.GROUP_ROW_ID, cache)
@@ -110,13 +113,23 @@ object ContentHelper {
         return map
     }
 
-    fun newDelete(contactId: String, mimeType: String): ContentProviderOperation {
+    fun newDelete(
+        contactId: String,
+        mimeType: String,
+    ): ContentProviderOperation {
         val o = ContentProviderOperation.newDelete(ContactsContract.Data.CONTENT_URI)
-        o.withSelection("${ContactsContract.Data.RAW_CONTACT_ID} = ? AND ${ContactsContract.Data.MIMETYPE} = ? ", arrayOf(contactId, mimeType))
+        o.withSelection(
+            "${ContactsContract.Data.RAW_CONTACT_ID} = ? AND ${ContactsContract.Data.MIMETYPE} = ? ",
+            arrayOf(contactId, mimeType),
+        )
         return o.build()
     }
 
-    fun newInsert(contactId: String, mimeType: String, item: ContentItemInput): ContentProviderOperation {
+    fun newInsert(
+        contactId: String,
+        mimeType: String,
+        item: ContentItemInput,
+    ): ContentProviderOperation {
         val o = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
         o.apply {
             withValueId(this, contactId)
@@ -158,7 +171,11 @@ object ContentHelper {
         return o.build()
     }
 
-    fun newInsert(contactId: String, mimeType: String, value: String): ContentProviderOperation {
+    fun newInsert(
+        contactId: String,
+        mimeType: String,
+        value: String,
+    ): ContentProviderOperation {
         val o = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
         o.apply {
             withValueId(this, contactId)
@@ -178,7 +195,10 @@ object ContentHelper {
         return o.build()
     }
 
-    fun newOrgInsert(contactId: String, organization: OrganizationInput): ContentProviderOperation {
+    fun newOrgInsert(
+        contactId: String,
+        organization: OrganizationInput,
+    ): ContentProviderOperation {
         val o = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
         o.apply {
             withValueId(this, contactId)
@@ -190,7 +210,10 @@ object ContentHelper {
         return o.build()
     }
 
-    private fun withValueId(builder: ContentProviderOperation.Builder, contactId: String) {
+    private fun withValueId(
+        builder: ContentProviderOperation.Builder,
+        contactId: String,
+    ) {
         if (contactId == "0") {
             builder.withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
         } else {

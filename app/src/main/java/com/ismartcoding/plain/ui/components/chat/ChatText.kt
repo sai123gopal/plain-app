@@ -1,6 +1,7 @@
 package com.ismartcoding.plain.ui.components.chat
 
 import android.content.Context
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
@@ -26,19 +27,20 @@ fun ChatText(
     navController: NavHostController,
     sharedViewModel: SharedViewModel,
     focusManager: FocusManager,
-    m: VChat
+    m: VChat,
 ) {
-    val text = (m.value as DMessageText).text.linkify(
-        SpanStyle(
-            color = MaterialTheme.colorScheme.primary,
-            textDecoration = TextDecoration.Underline,
+    val text =
+        (m.value as DMessageText).text.linkify(
+            SpanStyle(
+                color = MaterialTheme.colorScheme.primary,
+                textDecoration = TextDecoration.Underline,
+            ),
         )
-    )
     SelectionContainer {
         ClickableText(
             text = text,
             style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
             onClick = { position ->
                 focusManager.clearFocus()
                 text.urlAt(context, position)

@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import java.io.FileInputStream
 import java.util.Properties
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 
 plugins {
     id("com.android.application")
@@ -11,7 +12,7 @@ plugins {
     id("com.google.devtools.ksp")
     kotlin("android")
     kotlin("kapt")
-    kotlin("plugin.serialization") version "1.9.0"
+    kotlin("plugin.serialization") version "1.9.10"
 }
 
 val keystoreProperties = Properties()
@@ -59,28 +60,46 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            resValue("string", "app_name", "PlainApp-Debug")
-            isShrinkResources = false
-            isMinifyEnabled = false
+            isShrinkResources = true
+            isMinifyEnabled = true
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
+            }
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
             }
         }
         release {
             signingConfig = signingConfigs.getByName("release")
-            isShrinkResources = false
-            isMinifyEnabled = false
+            isShrinkResources = true
+            isMinifyEnabled = true
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
             }
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
             setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
+        }
+    }
+
+    flavorDimensions += "pricing"
+    productFlavors {
+        create("free") {
+            dimension = "pricing"
+            buildConfigField("boolean", "isPro", "false")
+        }
+        create("pro") {
+            dimension = "pricing"
+            applicationIdSuffix = ".pro"
+            buildConfigField("boolean", "isPro", "true")
+            resValue("string", "app_name", "PlainApp Pro")
         }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-//        isCoreLibraryDesugaringEnabled = true
     }
 
     buildFeatures {
@@ -91,12 +110,12 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.2"
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
 
     packaging {
         jniLibs {
-            useLegacyPackaging = true
+            // useLegacyPackaging = true
             excludes += listOf("META-INF/*")
         }
         resources {
@@ -110,20 +129,15 @@ android {
         mapScalar("Time", "java.util.Date")
     }
 
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions {
-            jvmTarget = JavaVersion.VERSION_17.toString()
-        }
-    }
-    applicationVariants.forEach { variant ->
-        variant.buildConfigField("String", "applicationId", "\"${variant.applicationId}\"")
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 }
 
 dependencies {
     val room = "2.6.0-rc01"
     val apollo = "3.2.1"
-    val kgraphql = "0.18.1"
+    val kgraphql = "0.19.0"
     val ktor = "2.1.0" // don't upgrade, TLS handshake failed
 
     implementation(platform("androidx.compose:compose-bom:2023.09.01"))
@@ -138,7 +152,7 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.0-alpha08")
     implementation("androidx.compose.material:material-icons-extended")
 
-    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0-alpha12")
+//    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0-alpha12")
 
     // https://developer.android.com/jetpack/androidx/releases/navigation
     implementation("androidx.navigation:navigation-compose:2.7.3")

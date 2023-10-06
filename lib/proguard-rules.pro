@@ -20,5 +20,5 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--dontwarn java.lang.invoke.StringConcatFactory
-
+# Please add these rules to your existing keep rules in order to suppress warnings.
+# This is generated automatically by the Android Gradle plugin.

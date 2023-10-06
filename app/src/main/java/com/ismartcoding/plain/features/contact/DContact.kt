@@ -20,28 +20,29 @@ data class DContact(
     var suffix: String,
     var nickname: String,
     var photoUri: String,
-    var phoneNumbers: List<PhoneNumber>,
-    var emails: List<ContentItem>,
-    var addresses: List<ContentItem>,
-    var events: List<ContentItem>,
+    var phoneNumbers: List<DPhoneNumber>,
+    var emails: List<DContentItem>,
+    var addresses: List<DContentItem>,
+    var events: List<DContentItem>,
     var source: String,
     var starred: Int,
     var contactId: String,
     var thumbnailUri: String,
     var notes: String,
     var groups: List<DGroup>,
-    var organization: Organization?,
-    var websites: List<ContentItem>,
-    var ims: List<ContentItem>,
+    var organization: DOrganization?,
+    var websites: List<DContentItem>,
+    var ims: List<DContentItem>,
     var ringtone: String,
     var updatedAt: Instant,
-): IData {
+) : IData {
     fun fullName(): String {
-        val name = if (givenName.containsChinese() || familyName.containsChinese()) {
-            "$familyName$middleName$givenName"
-        } else {
-            setOf(givenName, middleName, familyName).filter { it.isNotEmpty() }.joinToString(" ")
-        }
+        val name =
+            if (givenName.containsChinese() || familyName.containsChinese()) {
+                "$familyName$middleName$givenName"
+            } else {
+                setOf(givenName, middleName, familyName).filter { it.isNotEmpty() }.joinToString(" ")
+            }
 
         val suffixComma = if (suffix.isEmpty()) "" else ", $suffix"
         val fullName = "$prefix $name $suffixComma".trim()
