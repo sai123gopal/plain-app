@@ -37,13 +37,13 @@ android {
                 else -> 0
             }
 
-        val vCode = 160
+        val vCode = 163
         versionCode = vCode - singleAbiNum
-        versionName = "1.2.9"
+        versionName = "1.2.10"
 
         ndk {
-            if (abiFilterList.isNotEmpty()) {
-                abiFilters += abiFilterList
+            abiFilters += abiFilterList.ifEmpty {
+                listOf("arm64-v8a", "x86_64")
             }
         }
     }
@@ -68,6 +68,7 @@ android {
             configure<CrashlyticsExtension> {
                 mappingFileUploadEnabled = false
             }
+//            setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
         }
         release {
             signingConfig = signingConfigs.getByName("release")
@@ -79,7 +80,7 @@ android {
             configure<CrashlyticsExtension> {
                 mappingFileUploadEnabled = false
             }
-            setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
+//            setProguardFiles(listOf(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"))
         }
     }
 
