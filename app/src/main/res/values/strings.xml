@@ -1,5 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">PlainApp</string>
+    <string name="vpn_web_conflict_warning">Your VPN is currently enabled on your device, which could potentially lead to web connection issues when accessed from PC. To resolve this, we recommend adjusting your VPN settings to allow LAN traffic or disabling your VPN.</string>
+    <string name="warning">Warning</string>
+    <string name="http_port_conflict_error">Port {{ port }} is currently in use. You can tap the \'Fix\' button to automatically change the port, or you can choose to tap the edit icon next to the URL address to manually select a different port.</string>
+    <string name="http_port_conflict_errors">The ports {{ port }} are currently in use. You have the option to tap the \'Fix\' button to automatically change the port, or you can choose to tap the edit icon next to the URL address to manually select a different port.</string>
+    <string name="fix">Fix</string>
     <string name="security">Security</string>
     <string name="url_token">URL token</string>
     <string name="url_token_tips">The URL token encrypts data in URLs. If it\'s reset, old token-encrypted URLs become inaccessible.</string>
@@ -285,6 +290,7 @@
     <string name="feature_CALL_PHONE">Allow web to make phone call</string>
     <string name="feature_READ_CONTACTS">Allow web to read contacts</string>
     <string name="feature_WRITE_CONTACTS">Allow web to write contacts</string>
+    <string name="feature_NOTIFICATION_LISTENER">Allow web to read notifications</string>
     <string name="system_permission_granted">System permission granted</string>
     <string name="system_permission_not_granted">System permission not granted</string>
     <string name="open_permission_settings">Open permission settings</string>
@@ -449,7 +455,7 @@
     <string name="enter_this_address_tips">Please enter the above address in your PC web browser.</string>
     <string name="last_visit_at">Last visit at</string>
     <string name="web_console_desc">Your PC and mobile device must be in the same subnet. To maximize your phone\'s performance, please connect the USB adapter to a power outlet.</string>
-    <string name="fetch_content_automatically">Automatic fetch content</string>
+    <string name="fetch_content_automatically">Fetch content automatically</string>
     <string name="app_restored">APP data is restored, you need to force quit this app and start the app again as new.</string>
     <string name="welcome_text">Welcome! You can easily send text, images, and videos to this page and view them on your computer.\nIf you encounter any issues, please feel free to send an email to ismartcoding@gmail.com for assistance or join our Discord discussion at: https://discord.gg/RQWcS6DEEe.</string>
     <string name="demo_mode">Demo mode</string>

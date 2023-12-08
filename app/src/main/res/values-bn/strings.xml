@@ -1,5 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">প্লেনঅ্যাপ</string>
+    <string name="vpn_web_conflict_warning">আপনার ডিভাইসে সক্রিয় ভিপিএন আছে, যা একটি পিসি থেকে অ্যাক্সেস করার সময় ওয়েব সংযোগের সমস্যা উত্পন্ন করতে পারে। এটি সমাধান করতে, আমরা আপনাকে আপনার ভিপিএন সেটিংস পরিবর্তন করে এলএএন ট্র্যাফিক অনুমতি দেওয়া বা আপনার ভিপিএন নিষ্ক্রিয় করতে প্রস্তাবনা দিচ্ছি।</string>
+    <string name="warning">সতর্কবার্তা</string>
+    <string name="http_port_conflict_error">পোর্ট {{ port }} বর্তমানে ব্যবহৃত হচ্ছে। আপনি পোর্ট স্বয়ংক্রিয়ভাবে পরিবর্তন করতে \'ঠিক করুন\' বোতামটি ট্যাপ করতে পারেন, অথবা আপনি URL ঠিকানার পাশের সম্পাদনা আইকনটি ট্যাপ করে একটি পৃথক পোর্ট নির্বাচন করতে পারেন।</string>
+    <string name="http_port_conflict_errors">পোর্ট {{ port }} বর্তমানে ব্যবহৃত হচ্ছে। আপনি পোর্ট স্বয়ংক্রিয়ভাবে পরিবর্তন করতে \'ঠিক করুন\' বোতামটি ট্যাপ করতে পারেন, অথবা আপনি URL ঠিকানার পাশের সম্পাদনা আইকনটি ট্যাপ করে একটি পৃথক পোর্ট নির্বাচন করতে পারেন।</string>
+    <string name="fix">ঠিক করুন</string>
     <string name="security">নিরাপত্তা</string>
     <string name="url_token">ইউআরএল টোকেন</string>
     <string name="url_token_tips">ইউআরএল টোকেন ইউআরএলে ডেটা এনক্রিপ্ট করে। যদি এটি রিসেট হয়, পুরানো টোকেনে এনক্রিপ্ট করা ইউআরএল অবহিলিত হয়।</string>
@@ -285,6 +290,7 @@
     <string name="feature_CALL_PHONE">ওয়েবটিকে ফোন কল করতে অনুমতি দিন</string>
     <string name="feature_READ_CONTACTS">ওয়েবটিকে যোগাযোগ পড়তে অনুমতি দিন</string>
     <string name="feature_WRITE_CONTACTS">ওয়েবটিকে যোগাযোগ লিখতে অনুমতি দিন</string>
+    <string name="feature_NOTIFICATION_LISTENER">ওয়েবকে বিজ্ঞপ্তি পড়তে অনুমতি দিন</string>
     <string name="system_permission_granted">সিস্টেম অনুমতি দেওয়া হয়েছে</string>
     <string name="system_permission_not_granted">সিস্টেম অনুমতি দেওয়া হয়নি</string>
     <string name="open_permission_settings">অনুমতি সেটিংস খুলুন</string>

@@ -4,6 +4,7 @@
 -keep class com.ismartcoding.plain.** { *; }
 -keep class io.ktor.server.** { *; }
 -keep class io.netty.** { *; }
+-keep class com.rometools.rome.** { *; }
 
 -keepclassmembers class **.R$* {
     public static <fields>;
@@ -111,3 +112,4 @@
 -dontwarn sun.security.x509.X500Name
 -dontwarn sun.security.x509.X509CertImpl
 -dontwarn sun.security.x509.X509CertInfo
+-dontwarn org.slf4j.impl.StaticLoggerBinder

@@ -53,6 +53,7 @@ import com.ismartcoding.plain.db.DMessageImages
 import com.ismartcoding.plain.db.DMessageType
 import com.ismartcoding.plain.features.AIChatCreatedEvent
 import com.ismartcoding.plain.features.ActionEvent
+import com.ismartcoding.plain.features.CancelNotificationsEvent
 import com.ismartcoding.plain.features.ClearAudioPlaylistEvent
 import com.ismartcoding.plain.features.Permission
 import com.ismartcoding.plain.features.QueryHelper
@@ -521,6 +522,13 @@ class SXGraphQL(val schema: Schema) {
                         }
                     }
                 }
+                query("notifications") {
+                    resolver { ->
+                        val context = MainApp.instance
+                        Permission.NOTIFICATION_LISTENER.checkAsync(context)
+                        TempData.notifications.sortedByDescending { it.time }.map { it.toModel() }
+                    }
+                }
                 query("feeds") {
                     resolver { ->
                         val items = FeedHelper.getAll()
@@ -632,6 +640,12 @@ class SXGraphQL(val schema: Schema) {
                         ids.forEach {
                             PackageHelper.uninstall(MainActivity.instance.get()!!, it.value)
                         }
+                        true
+                    }
+                }
+                mutation("cancelNotifications") {
+                    resolver { ids: List<ID> ->
+                        sendEvent(CancelNotificationsEvent(ids.map { it.value }.toSet()))
                         true
                     }
                 }
@@ -750,9 +764,10 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("updateFeed") {
-                    resolver { id: ID, name: String ->
+                    resolver { id: ID, name: String, fetchContent: Boolean ->
                         FeedHelper.updateAsync(id.value) {
                             this.name = name
+                            this.fetchContent = fetchContent
                         }
                         FeedHelper.getById(id.value)?.toModel()
                     }
@@ -935,12 +950,13 @@ class SXGraphQL(val schema: Schema) {
                     }
                 }
                 mutation("createFeed") {
-                    resolver { url: String ->
+                    resolver { url: String, fetchContent: Boolean ->
                         val syndFeed = withIO { FeedHelper.fetchAsync(url) }
                         val id =
                             FeedHelper.addAsync {
                                 this.url = url
-                                this.name = syndFeed.title
+                                this.name = syndFeed.title ?: ""
+                                this.fetchContent = fetchContent
                             }
                         FeedFetchWorker.oneTimeRequest(id)
                         sendEvent(ActionEvent(ActionSourceType.FEED, ActionType.CREATED, setOf(id)))

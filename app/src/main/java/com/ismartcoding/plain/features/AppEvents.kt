@@ -48,6 +48,10 @@ class BoxConnectivityStateChangedEvent
 
 class StartHttpServerEvent
 
+class StartHttpServerErrorEvent
+
+class StopHttpServerDoneEvent
+
 class StartScreenMirrorEvent
 
 class RestartAppEvent
@@ -89,6 +93,8 @@ class ExportFileResultEvent(val type: ExportFileType, val uri: Uri)
 class ActionEvent(val source: ActionSourceType, val action: ActionType, val ids: Set<String>, val extra: Any? = null)
 
 class AudioActionEvent(val action: AudioAction)
+
+class CancelNotificationsEvent(val ids: Set<String>)
 
 class ClearAudioPlaylistEvent
 

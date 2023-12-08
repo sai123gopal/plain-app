@@ -64,7 +64,7 @@ import com.ismartcoding.plain.ui.page.web.WebSecurityPage
 import com.ismartcoding.plain.ui.preview.PreviewDialog
 import com.ismartcoding.plain.ui.preview.PreviewItem
 import com.ismartcoding.plain.ui.theme.AppTheme
-import com.ismartcoding.plain.ui.theme.backColor
+import com.ismartcoding.plain.ui.theme.canvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -131,7 +131,7 @@ fun Main(viewModel: MainViewModel) {
 
     AppTheme(useDarkTheme = useDarkTheme) {
         window.statusBarColor = Color.Transparent.toArgb()
-        window.navigationBarColor = MaterialTheme.colorScheme.backColor().toArgb()
+        window.navigationBarColor = MaterialTheme.colorScheme.canvas().toArgb()
         insetsController.isAppearanceLightStatusBars = !useDarkTheme
         insetsController.isAppearanceLightNavigationBars = !useDarkTheme
 
@@ -149,7 +149,7 @@ fun Main(viewModel: MainViewModel) {
                 RouteName.BACKUP_RESTORE to { BackupRestorePage(navController) },
                 RouteName.ABOUT to { AboutPage(navController) },
                 RouteName.LOGS to { LogsPage(navController) },
-                RouteName.WEB_CONSOLE to { WebConsolePage(navController, sharedViewModel) },
+                RouteName.WEB_CONSOLE to { WebConsolePage(navController, viewModel) },
                 RouteName.PASSWORD to { PasswordPage(navController) },
                 RouteName.SESSIONS to { SessionsPage(navController) },
                 RouteName.WEB_DEV to { WebDevPage(navController) },
@@ -161,7 +161,7 @@ fun Main(viewModel: MainViewModel) {
                 RouteName.TEXT to { TextPage(navController, sharedViewModel) },
                 RouteName.SCAN_HISTORY to { ScanHistoryPage(navController) },
                 RouteName.SCAN to { ScanPage(navController) },
-                RouteName.MEDIA_PREVIEW to { MediaPreviewPage(navController) },
+                RouteName.MEDIA_PREVIEW to { MediaPreviewPage(navController, sharedViewModel) },
             ).forEach { (routeName, content) ->
                 slideHorizontallyComposable(routeName.name) {
                     content()

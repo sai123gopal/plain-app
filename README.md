@@ -28,6 +28,7 @@ PlainApp is an open-source application that allows you to manage your phone thro
 - Apps: View your apps and download apk from phone.(web only)
 - Screen mirror: Mirror your phone on webpage.
 - Tools: Exchange rate, Sound meter.
+- Notifications: You can manage push notifications on the webpage.
 - And more features are planned for the future.
 
 PlainApp's minimalist design is intentional, so you can focus on what matters most: your valuable data.
@@ -87,6 +88,39 @@ PlainApp requires Android 9.0 or higher.
 | To do list                                                |  ❌  |  ❌  |
 
 The ultimate goal is to turn smartphones into personal data and knowledge managers, allowing individuals to more easily exchange knowledge and data with each other through PlainApp.
+
+## FAQ
+
+### Doesn't work. Neither https nor http.
+
+1. Double check the IP address and port number.
+2. Your PC and mobile device must be in the same Wi-Fi network. 
+3. Try open the webpage on your mobile device see if it works. If it works, then it's a network issue.
+4. Try open the webpage on your PC using incognito mode see if it works. If it works, then it's a browser extension issue.
+5. Try open the webpage on your PC using another browser see if it works. If it works, then it's a browser issue.
+6. Try open the webpage on your PC using another PC see if it works. If it works, then it's a PC issue.
+
+### Why can't I find Messages or Calls in the Social section on my webpage's Home tab?
+
+Google Play Store doesn't allow PlainApp to use SMS and Call Permissions. You can access these features on versions from F-droid and GitHub.
+
+### When connecting my mobile to my PC using HTTPS, a warning appears in the browser saying, "Your connection is not private. Attackers may try to steal your information from x.x.x.x (e.g., passwords, messages, or credit cards)."
+
+The warning is because of a self-signed TLS certificate, and there's no direct way to remove it. You can proceed by clicking "Proceed to x.x.x.x (unsafe)." Despite the warning, data between the mobile app and web interface is encrypted.
+
+### Why screen mirror is not working?
+
+Try use the latest version of Chrome.
+
+### Why can't I receive the desktop notifications?
+
+Grant Chrome Notification Permission on Windows/Mac/Linux
+Go to Settings > System > Notifications & actions and make sure the Notifications option is toggled on for Chrome.
+
+### I don't believe this app.
+
+It's worth mentioning that this is an open-source application. 
+If you have doubts, you can either build your own version or choose not to use it.
 
 ## Support
 
