@@ -12,6 +12,7 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import com.ismartcoding.lib.helpers.SearchHelper
 import com.ismartcoding.lib.logcat.LogCat
+import com.ismartcoding.lib.pinyin.Pinyin
 import com.ismartcoding.plain.packageManager
 import kotlinx.datetime.Instant
 import java.io.File
@@ -94,6 +95,7 @@ object PackageHelper {
 
             apps.add(
                 DPackage(
+                    appInfo,
                     appInfo.packageName,
                     getLabel(appInfo),
                     appType,
@@ -119,7 +121,7 @@ object PackageHelper {
                             || c.subject.contains(text, true)
                 }
             }.drop(offset).take(limit)
-        }
+        }.sortedBy { Pinyin.toPinyin(it.name).lowercase() }
     }
 
     fun cacheAppLabels() {
@@ -163,16 +165,27 @@ object PackageHelper {
     private fun getLabel(packageInfo: ApplicationInfo): String {
         val key = packageInfo.packageName
         if (!appLabelCache.containsKey(key)) {
-            appLabelCache[key] = packageManager.getApplicationLabel(packageInfo).toString()
+            try {
+                appLabelCache[key] = packageManager.getApplicationLabel(packageInfo).toString()
+            } catch (ex: Exception) {
+                appLabelCache[key] = key
+                LogCat.d(ex.toString())
+            }
         }
 
         return appLabelCache[key] ?: ""
     }
 
     fun getLabel(context: Context, packageName: String): String {
-        val pm = context.packageManager
-        val packageInfo = pm.getApplicationInfo(packageName, 0)
-        return getLabel(packageInfo)
+        try {
+            val pm = context.packageManager
+            val applicationInfo = pm.getApplicationInfo(packageName, 0)
+            return getLabel(applicationInfo)
+        } catch (ex: Exception) {
+            LogCat.d(ex.toString())
+        }
+
+        return ""
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {

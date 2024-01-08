@@ -2,6 +2,9 @@
     <string name="app_name">PlainApp</string>
     <string name="vpn_web_conflict_warning">Votre VPN est actuellement activé sur votre appareil, ce qui pourrait potentiellement entraîner des problèmes de connexion Web lorsqu\'il est accédé depuis un PC. Pour résoudre cela, nous vous recommandons d\'ajuster les paramètres de votre VPN pour autoriser le trafic LAN ou de désactiver votre VPN.</string>
     <string name="warning">Avertissement</string>
+    <string name="apps">Applications</string>
+    <string name="app_type_user">Utilisateur</string>
+    <string name="app_type_system">Système</string>
     <string name="http_port_conflict_error">Le port {{ port }} est actuellement utilisé. Vous pouvez appuyer sur le bouton \'Réparer\' pour changer automatiquement le port, ou vous pouvez choisir de toucher l\'icône d\'édition à côté de l\'adresse URL pour sélectionner manuellement un port différent.</string>
     <string name="http_port_conflict_errors">Les ports {{ port }} sont actuellement utilisés. Vous avez la possibilité d\'appuyer sur le bouton \'Réparer\' pour changer automatiquement le port, ou vous pouvez choisir de toucher l\'icône d\'édition à côté de l\'adresse URL pour sélectionner manuellement un port différent.</string>
     <string name="fix">Réparer</string>
@@ -291,6 +294,8 @@
     <string name="feature_READ_CONTACTS">Autoriser le site Web à lire les contacts</string>
     <string name="feature_WRITE_CONTACTS">Autoriser le site Web à écrire les contacts</string>
     <string name="feature_NOTIFICATION_LISTENER">Autoriser le site web à lire les notifications</string>
+    <string name="feature_READ_PHONE_STATE">Autoriser le site Web à lire l\'état du téléphone</string>
+    <string name="feature_READ_PHONE_NUMBERS">Autoriser le site Web à lire les numéros de téléphone</string>
     <string name="system_permission_granted">Autorisation système accordée</string>
     <string name="system_permission_not_granted">Autorisation système non accordée</string>
     <string name="open_permission_settings">Ouvrir les paramètres d\'autorisation</string>
@@ -358,7 +363,6 @@
     <string name="x_min">{{num}} min</string>
     <string name="copy_path">Copier le chemin</string>
     <string name="cut">Couper</string>
-    <string name="copy" tools:override="true">Copier</string>
     <string name="show_hidden_files">Afficher les fichiers cachés</string>
     <string name="add_new_folder">Ajouter un nouveau dossier</string>
     <string name="newest_date_first">Les plus récents d\'abord</string>

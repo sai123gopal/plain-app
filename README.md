@@ -17,7 +17,7 @@ PlainApp is an open-source application that allows you to manage your phone thro
 - User-friendly: PlainApp has a modern, customizable interface with multi-language support, light/dark theme options, and e-ink screen compatibility.
 - Desktop management: You can manage your phone from your desktop by visiting a self-hosted webpage wirelessly.
 - Contacts management: You can manage these features on the self-hosted webpage as well.
-- File management: Manage files, images, videos, and audio on the self-hosted webpage.
+- File management: Manage files(Internal storage, SD card, USB storage), images, videos, and audio on the self-hosted webpage.
 - Note-taking: Use PlainApp to manage your notes with a built-in Markdown editor.
 - RSS reader: Read articles in a clean UI.
 - TV casting: Cast your videos, images, and audio to your TV.
@@ -29,6 +29,8 @@ PlainApp is an open-source application that allows you to manage your phone thro
 - Screen mirror: Mirror your phone on webpage.
 - Tools: Exchange rate, Sound meter.
 - Notifications: You can manage push notifications on the webpage.
+- Device info: You can view your device info on the webpage.
+- PWA support: You can add webpage to your home screen and experience the convenience of using the webpage like a desktop app.
 - And more features are planned for the future.
 
 PlainApp's minimalist design is intentional, so you can focus on what matters most: your valuable data.
@@ -100,6 +102,24 @@ The ultimate goal is to turn smartphones into personal data and knowledge manage
 5. Try open the webpage on your PC using another browser see if it works. If it works, then it's a browser issue.
 6. Try open the webpage on your PC using another PC see if it works. If it works, then it's a PC issue.
 
+### Why am I encountering the error "This site can’t be reached" when attempting to access the webpage?
+
+1. Check the PlainApp what is the color of the dot on the top right corner. If it's red, then the Web Server is not running. If it's green, then the Web Server is running well.
+<img src="assets/web-server-dot-green.png" />
+
+2. If the Web Server is running on mobile device. Check the IP address and port number in PC web browser. Make sure you have entered the correct IP address and port number.
+
+3. If the IP address and port number are both correct. Try ping the IP address on your mobile device. If it's not reachable, then it's a network issue.
+
+4. If the IP address is not reachable. Your PC and mobile device must be in the same Wi-Fi network.
+
+5. If your PC and mobile device are in the same Wi-Fi network. Check your firewall settings. Make sure the port number is not blocked.
+
+6. If the port number is not blocked. Try open the webpage on your mobile device see if it works. If it works, then it's a network issue.
+<img src="assets/mobile-web.png" />
+
+7. If it's a network issue and you still have no idea. Join the Discord server and ask for help. https://discord.gg/RQWcS6DEEe
+
 ### Why can't I find Messages or Calls in the Social section on my webpage's Home tab?
 
 Google Play Store doesn't allow PlainApp to use SMS and Call Permissions. You can access these features on versions from F-droid and GitHub.
@@ -116,6 +136,23 @@ Try use the latest version of Chrome.
 
 Grant Chrome Notification Permission on Windows/Mac/Linux
 Go to Settings > System > Notifications & actions and make sure the Notifications option is toggled on for Chrome.
+
+### Context menu isn't working on web page. What should I do?
+
+If you're experiencing issues with the context menu, try opening the page in an Incognito window. Some Chrome extensions, such as the "Allow Right Click" extension, may interfere with the functionality. Disabling or removing such extensions might resolve the problem.
+
+### Why don't I see PWA install icon?
+
+As the webpage is using self-signed certificate, you need to do extra steps to install PWA. Check this article https://mswjs.io/docs/recipes/using-local-https/
+
+Here is the example for Chrome / Brave
+1. Open chrome://flags (or brave://flags if using Brave);
+2. Search for `unsafely-treat-insecure-origin-as-secure` flag in the list;
+3. Select the “Enabled” option next to the flag.
+4. Enter your URL into the field. e.g. https://10.11.1.128:8443
+
+<img src="assets/chrome-pwa.png" width="600"/>
+<img src="assets/chrome-pwa-address-bar.png" width="600"/>
 
 ### I don't believe this app.
 

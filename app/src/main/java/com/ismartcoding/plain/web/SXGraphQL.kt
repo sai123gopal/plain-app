@@ -82,9 +82,11 @@ import com.ismartcoding.plain.features.tag.TagHelper
 import com.ismartcoding.plain.features.tag.TagRelationStub
 import com.ismartcoding.plain.features.video.VideoHelper
 import com.ismartcoding.plain.helpers.AppHelper
+import com.ismartcoding.plain.helpers.DeviceInfoHelper
 import com.ismartcoding.plain.helpers.ExchangeHelper
 import com.ismartcoding.plain.helpers.FileHelper
 import com.ismartcoding.plain.helpers.TempHelper
+import com.ismartcoding.plain.receivers.BatteryReceiver
 import com.ismartcoding.plain.receivers.PlugInControlReceiver
 import com.ismartcoding.plain.services.ScreenMirrorService
 import com.ismartcoding.plain.ui.MainActivity
@@ -375,7 +377,12 @@ class SXGraphQL(val schema: Schema) {
                     }
                     resolver { offset: Int, limit: Int, query: String ->
                         Permission.READ_CONTACTS.checkAsync(MainApp.instance)
-                        ContactHelper.search(MainApp.instance, QueryHelper.prepareQuery(query), limit, offset).map { it.toModel() }
+                        try {
+                            ContactHelper.search(MainApp.instance, QueryHelper.prepareQuery(query), limit, offset).map { it.toModel() }
+                        } catch (ex: Exception) {
+                            LogCat.e(ex)
+                            emptyList()
+                        }
                     }
                     type<Contact> {
                         dataProperty("tags") {
@@ -597,6 +604,18 @@ class SXGraphQL(val schema: Schema) {
                             ExchangeHelper.getRates()
                         }
                         UIDataCache.current().latestExchangeRates?.toModel()
+                    }
+                }
+                query("deviceInfo") {
+                    resolver { ->
+                        val apiPermissions = ApiPermissionsPreference.getAsync(MainApp.instance)
+                        val readPhoneNumber = apiPermissions.contains(Permission.READ_PHONE_STATE.toString()) && apiPermissions.contains(Permission.READ_PHONE_NUMBERS.toString())
+                        DeviceInfoHelper.getDeviceInfo(MainApp.instance, readPhoneNumber).toModel()
+                    }
+                }
+                query("battery") {
+                    resolver { ->
+                        BatteryReceiver.get(MainApp.instance).toModel()
                     }
                 }
                 query("app") {
@@ -1255,7 +1274,7 @@ class SXGraphQL(val schema: Schema) {
                 }
             }
 
-            pipeline.pluginOrNull(Routing)?.apply(routing) ?: pipeline.install(Routing, routing)
+            pipeline.pluginOrNull(Routing)?.apply(routing)
 
             pipeline.intercept(ApplicationCallPipeline.Monitoring) {
                 try {

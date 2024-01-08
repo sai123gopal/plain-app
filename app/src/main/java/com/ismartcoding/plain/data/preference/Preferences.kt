@@ -206,7 +206,7 @@ object LanguagePreference : BasePreference<String>() {
 }
 
 object WebPreference : BasePreference<Boolean>() {
-    override val default = false
+    override val default = true
     override val key = booleanPreferencesKey("web")
 
     override suspend fun putAsync(
@@ -425,11 +425,6 @@ object EditorSyntaxHighlightPreference : BasePreference<Boolean>() {
 object AudioSleepTimerMinutesPreference : BasePreference<Int>() {
     override val default = 30
     override val key = intPreferencesKey("audio_sleep_timer_minutes")
-}
-
-object AudioSleepTimerFutureTimePreference : BasePreference<Long>() {
-    override val default = 0L
-    override val key = longPreferencesKey("audio_sleep_timer_future_time")
 }
 
 object AudioSleepTimerFinishLastPreference : BasePreference<Boolean>() {

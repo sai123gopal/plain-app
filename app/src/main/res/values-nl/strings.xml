@@ -2,6 +2,9 @@
     <string name="app_name">PlainApp</string>
     <string name="vpn_web_conflict_warning">Uw VPN is momenteel ingeschakeld op uw apparaat, wat mogelijk kan leiden tot webverbinding problemen bij toegang vanaf uw pc. Om dit op te lossen, raden we aan om uw VPN-instellingen aan te passen om LAN-verkeer toe te staan of uw VPN uit te schakelen.</string>
     <string name="warning">Waarschuwing</string>
+    <string name="apps">Apps</string>
+    <string name="app_type_user">Gebruiker</string>
+    <string name="app_type_system">Systeem</string>
     <string name="http_port_conflict_error">Poort {{ port }} wordt momenteel gebruikt. U kunt op de \'Herstellen\' knop tikken om de poort automatisch te wijzigen, of u kunt ervoor kiezen om op het bewerkingspictogram naast het URL-adres te tikken om handmatig een andere poort te selecteren.</string>
     <string name="http_port_conflict_errors">De poorten {{ port }} worden momenteel gebruikt. U heeft de mogelijkheid om op de \'Herstellen\' knop te tikken om de poort automatisch te wijzigen, of u kunt ervoor kiezen om op het bewerkingspictogram naast het URL-adres te tikken om handmatig een andere poort te selecteren.</string>
     <string name="fix">Herstellen</string>
@@ -291,6 +294,8 @@
     <string name="feature_READ_CONTACTS">Toestaan dat web contacten leest</string>
     <string name="feature_WRITE_CONTACTS">Toestaan dat web contacten bijhoudt</string>
     <string name="feature_NOTIFICATION_LISTENER">Toestaan dat de website meldingen leest</string>
+    <string name="feature_READ_PHONE_STATE">Toestaan dat web de telefoonstatus leest</string>
+    <string name="feature_READ_PHONE_NUMBERS">Toestaan dat web telefoonnummers leest</string>
     <string name="system_permission_granted">Systeemtoestemming verleend</string>
     <string name="system_permission_not_granted">Systeemtoestemming niet verleend</string>
     <string name="open_permission_settings">Toestemmingsinstellingen openen</string>
@@ -358,7 +363,6 @@
     <string name="x_min">{{num}} min</string>
     <string name="copy_path">Pad kopiëren</string>
     <string name="cut">Knippen</string>
-    <string name="copy" tools:override="true">Kopiëren</string>
     <string name="show_hidden_files">Verborgen bestanden weergeven</string>
     <string name="add_new_folder">Nieuwe map toevoegen</string>
     <string name="newest_date_first">Nieuwste eerst</string>
