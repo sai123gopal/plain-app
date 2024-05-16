@@ -3,7 +3,7 @@ package com.ismartcoding.plain.features
 import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
-import androidx.core.content.ContextCompat
+import android.os.PowerManager
 import com.aallam.openai.api.BetaOpenAI
 import com.aallam.openai.api.chat.ChatCompletionRequest
 import com.aallam.openai.api.chat.ChatMessage
@@ -15,32 +15,30 @@ import com.aallam.openai.client.OpenAIConfig
 import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
+import com.ismartcoding.lib.helpers.JsonHelper.jsonEncode
 import com.ismartcoding.lib.helpers.SslHelper
 import com.ismartcoding.lib.logcat.LogCat
+import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.MainApp
-import com.ismartcoding.plain.data.enums.*
-import com.ismartcoding.plain.data.preference.ChatGPTApiKeyPreference
+import com.ismartcoding.plain.preference.ChatGPTApiKeyPreference
 import com.ismartcoding.plain.db.DAIChat
-import com.ismartcoding.plain.features.aichat.AIChatHelper
-import com.ismartcoding.plain.features.audio.AudioAction
+import com.ismartcoding.plain.enums.AudioAction
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.enums.ExportFileType
+import com.ismartcoding.plain.enums.HttpServerState
+import com.ismartcoding.plain.enums.PickFileTag
+import com.ismartcoding.plain.enums.PickFileType
 import com.ismartcoding.plain.features.audio.AudioPlayer
 import com.ismartcoding.plain.features.feed.FeedWorkerStatus
+import com.ismartcoding.plain.powerManager
 import com.ismartcoding.plain.services.HttpServerService
 import com.ismartcoding.plain.web.AuthRequest
 import com.ismartcoding.plain.web.websocket.EventType
 import com.ismartcoding.plain.web.websocket.WebSocketEvent
 import com.ismartcoding.plain.web.websocket.WebSocketHelper
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.engine.*
 import io.ktor.server.websocket.*
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import kotlin.time.Duration.Companion.seconds
 
@@ -48,13 +46,25 @@ class BoxConnectivityStateChangedEvent
 
 class StartHttpServerEvent
 
-class StartHttpServerErrorEvent
-
-class StopHttpServerDoneEvent
+class HttpServerStateChangedEvent(val state: HttpServerState)
 
 class StartScreenMirrorEvent
 
 class RestartAppEvent
+
+class ConfirmDialogEvent(
+    val title: String,
+    val message: String,
+    val confirmButton: Pair<String, () -> Unit>,
+    val dismissButton: Pair<String, () -> Unit>?
+)
+
+class LoadingDialogEvent(
+    val show: Boolean,
+    val message: String = ""
+)
+
+class WindowFocusChangedEvent(val hasFocus: Boolean)
 
 class DeleteChatItemViewEvent(val id: String)
 
@@ -78,9 +88,12 @@ class ConfirmToAcceptLoginEvent(
     val request: AuthRequest,
 )
 
-class PermissionResultEvent(val permission: Permission)
-
-class RequestPermissionEvent(val permission: Permission)
+class RequestPermissionsEvent(vararg val permissions: Permission)
+class PermissionsResultEvent(val map: Map<String, Boolean>) {
+    fun has(permission: Permission): Boolean {
+        return map.containsKey(permission.toSysPermission())
+    }
+}
 
 class PickFileEvent(val tag: PickFileTag, val type: PickFileType, val multiple: Boolean)
 
@@ -94,6 +107,12 @@ class ActionEvent(val source: ActionSourceType, val action: ActionType, val ids:
 
 class AudioActionEvent(val action: AudioAction)
 
+class IgnoreBatteryOptimizationEvent
+class AcquireWakeLockEvent
+class ReleaseWakeLockEvent
+
+class IgnoreBatteryOptimizationResultEvent
+
 class CancelNotificationsEvent(val ids: Set<String>)
 
 class ClearAudioPlaylistEvent
@@ -106,11 +125,10 @@ data class PlayAudioResultEvent(val uri: Uri)
 
 class AIChatCreatedEvent(val item: DAIChat)
 
-class ChatItemClickEvent
-
 object AppEvents {
     private lateinit var mediaPlayer: MediaPlayer
     private var mediaPlayingUri: Uri? = null
+    val wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "${BuildConfig.APPLICATION_ID}:http_server")
 
     @OptIn(BetaOpenAI::class)
     fun register() {
@@ -149,9 +167,30 @@ object AppEvents {
             }
         }
 
-        receiveEventHandler<PermissionResultEvent> { event ->
-            if (event.permission == Permission.POST_NOTIFICATIONS) {
-                AudioPlayer.instance.showNotification()
+        receiveEventHandler<AcquireWakeLockEvent> {
+            coIO {
+                LogCat.d("AcquireWakeLockEvent")
+                if (!wakeLock.isHeld) {
+                    wakeLock.acquire()
+                }
+            }
+        }
+
+        receiveEventHandler<ReleaseWakeLockEvent> {
+            coIO {
+                LogCat.d("ReleaseWakeLockEvent")
+                if (wakeLock.isHeld) {
+                    wakeLock.release()
+                }
+            }
+        }
+
+        receiveEventHandler<PermissionsResultEvent> { event ->
+            if (event.map.containsKey(Permission.POST_NOTIFICATIONS.toSysPermission())) {
+                if (AudioPlayer.isPlaying()) {
+                    AudioPlayer.pause()
+                    AudioPlayer.play()
+                }
             }
         }
 
@@ -159,7 +198,7 @@ object AppEvents {
             coIO {
                 try {
                     val context = MainApp.instance
-                    context.startForegroundService(Intent(context, HttpServerService::class.java))
+                    context.startService(Intent(context, HttpServerService::class.java))
                 } catch (ex: Exception) {
                     LogCat.e(ex.toString())
                 }
@@ -168,26 +207,26 @@ object AppEvents {
 
         receiveEventHandler<AIChatCreatedEvent> { event ->
             coIO {
-                val openAI =
-                    OpenAI(
-                        OpenAIConfig(
-                            token = ChatGPTApiKeyPreference.getAsync(MainApp.instance),
-                            timeout = Timeout(socket = 60.seconds),
-                        ),
+                val parentId = event.item.parentId.ifEmpty { event.item.id }
+                try {
+                    val openAI =
+                        OpenAI(
+                            OpenAIConfig(
+                                token = ChatGPTApiKeyPreference.getAsync(MainApp.instance),
+                                timeout = Timeout(socket = 60.seconds),
+                            ),
+                        )
+
+                    val messages = mutableListOf<ChatMessage>()
+                    messages.addAll(
+                        AIChatHelper.getChats(parentId).map {
+                            ChatMessage(
+                                role = if (it.isMe) ChatRole.User else ChatRole.Assistant,
+                                content = it.content,
+                            )
+                        },
                     )
 
-                val messages = mutableListOf<ChatMessage>()
-                val parentId = event.item.parentId.ifEmpty { event.item.id }
-                messages.addAll(
-                    AIChatHelper.getChats(parentId).map {
-                        ChatMessage(
-                            role = if (it.isMe) ChatRole.User else ChatRole.Assistant,
-                            content = it.content,
-                        )
-                    },
-                )
-
-                try {
                     val chatCompletionRequest =
                         ChatCompletionRequest(
                             model = ModelId("gpt-3.5-turbo"),
@@ -199,7 +238,7 @@ object AppEvents {
                         val c = completion.choices.getOrNull(0)
                         data.put("content", c?.delta?.content ?: "")
                         data.put("finishReason", c?.finishReason ?: "")
-                        LogCat.d(Json.encodeToString(completion))
+                        LogCat.d(jsonEncode(completion))
                         sendEvent(WebSocketEvent(EventType.AI_CHAT_REPLIED, data.toString()))
                     }
                 } catch (ex: Exception) {

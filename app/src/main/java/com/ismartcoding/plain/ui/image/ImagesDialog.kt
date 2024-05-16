@@ -13,21 +13,22 @@ import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.helpers.BitmapHelper
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.FormatHelper
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.lib.rv.GridSpacingItemDecoration
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.data.DMediaBucket
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.DataType
-import com.ismartcoding.plain.data.enums.MediaType
-import com.ismartcoding.plain.data.preference.ImageSortByPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.DataType
+import com.ismartcoding.plain.enums.MediaType
+import com.ismartcoding.plain.preference.ImageSortByPreference
 import com.ismartcoding.plain.databinding.ItemImageGridBinding
 import com.ismartcoding.plain.databinding.ItemMediaBucketGridBinding
+import com.ismartcoding.plain.enums.AppFeatureType
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
-import com.ismartcoding.plain.features.image.ImageHelper
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.image.ImageMediaStoreHelper
 import com.ismartcoding.plain.ui.BaseListDrawerDialog
 import com.ismartcoding.plain.ui.CastDialog
 import com.ismartcoding.plain.ui.extensions.checkPermission
@@ -62,7 +63,7 @@ class ImagesDialog(val bucket: DMediaBucket? = null) : BaseListDrawerDialog() {
     }
 
     override fun initEvents() {
-        receiveEvent<PermissionResultEvent> {
+        receiveEvent<PermissionsResultEvent> {
             checkPermission()
         }
         receiveEvent<ActionEvent> { event ->
@@ -120,11 +121,17 @@ class ImagesDialog(val bucket: DMediaBucket? = null) : BaseListDrawerDialog() {
                                 bms
                             }
                         try {
+                            val softwareBitmaps = mutableListOf<Bitmap>()
+                            for (bitmap in bitmaps) {
+                                // Convert hardware bitmap to software bitmap
+                                val softwareBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+                                softwareBitmaps.add(softwareBitmap)
+                            }
                             b.image.setImageBitmap(
                                 CombineBitmapTools.combineBitmap(
                                     200,
                                     200,
-                                    bitmaps,
+                                    softwareBitmaps,
                                 ),
                             )
                         } catch (ex: Exception) {
@@ -171,7 +178,7 @@ class ImagesDialog(val bucket: DMediaBucket? = null) : BaseListDrawerDialog() {
     }
 
     private fun checkPermission() {
-        binding.list.checkPermission(requireContext(), Permission.WRITE_EXTERNAL_STORAGE)
+        binding.list.checkPermission(requireContext(), AppFeatureType.FILES)
     }
 
     override fun updateList() {
@@ -189,8 +196,8 @@ class ImagesDialog(val bucket: DMediaBucket? = null) : BaseListDrawerDialog() {
         val query = viewModel.getQuery()
         val context = requireContext()
         val items =
-            withIO { ImageHelper.search(context, query, viewModel.limit, viewModel.offset, ImageSortByPreference.getValueAsync(context)) }
-        viewModel.total = withIO { ImageHelper.count(context, query) }
+            withIO { ImageMediaStoreHelper.search(context, query, viewModel.limit, viewModel.offset, ImageSortByPreference.getValueAsync(context)) }
+        viewModel.total = withIO { ImageMediaStoreHelper.count(context, query) }
 
         val bindingAdapter = binding.list.rv.bindingAdapter
         val toggleMode = bindingAdapter.toggleMode
@@ -211,7 +218,7 @@ class ImagesDialog(val bucket: DMediaBucket? = null) : BaseListDrawerDialog() {
     }
 
     private suspend fun updateFolders() {
-        val items = withIO { ImageHelper.getBuckets(requireContext()) }
+        val items = withIO { ImageMediaStoreHelper.getBuckets(requireContext()) }
         viewModel.total = items.size
         binding.list.page.addData(items, hasMore = { false })
     }

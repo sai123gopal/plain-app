@@ -6,6 +6,9 @@ import android.provider.MediaStore
 import android.telephony.PhoneNumberUtils
 import com.ismartcoding.lib.Constants
 import java.io.File
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.text.Normalizer
 import java.text.SimpleDateFormat
 import java.util.*
@@ -768,4 +771,47 @@ fun String.splitInParts(
 
 fun String.capitalize(): String {
     return this.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+}
+
+fun String.urlEncode(): String {
+    return URLEncoder.encode(this, StandardCharsets.UTF_8.toString())
+}
+
+fun String.urlDecode(): String {
+    return URLDecoder.decode(this, StandardCharsets.UTF_8.toString())
+}
+
+fun String.base64Encode(): String {
+    return Base64.getEncoder().encodeToString(this.toByteArray())
+}
+
+fun String.base64Decode(): String {
+    return String(Base64.getDecoder().decode(this))
+}
+
+fun String.pathToAceMode(): String {
+    return when (getFilenameExtension().lowercase()) {
+        "js", "javascript" -> "javascript"
+        "java" -> "java"
+        "kt", "kotlin" -> "kotlin"
+        "xml", "html", "htm", "xhtml", "jsp", "jspx", "php", "phtml", "volt", "twig" -> "xml"
+        "css", "less", "scss", "sass" -> "css"
+        "json" -> "json"
+        "md", "markdown" -> "markdown"
+        "sql" -> "sql"
+        "txt", "text", "log", "cfg", "ini", "conf", "properties", "bat", "sh" -> "text"
+        "c", "h", "cpp", "hpp" -> "c_cpp"
+        "py" -> "python"
+        "rb" -> "ruby"
+        "pl" -> "perl"
+        "groovy" -> "groovy"
+        "swift" -> "swift"
+        "go" -> "golang"
+        "rust" -> "rust"
+        "dart" -> "dart"
+        "yaml", "yml" -> "yaml"
+        "dockerfile" -> "dockerfile"
+        "r" -> "r"
+        else -> "text" // Default to plain text if no specific mapping found
+    }
 }

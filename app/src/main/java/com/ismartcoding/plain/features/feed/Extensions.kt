@@ -2,31 +2,28 @@ package com.ismartcoding.plain.features.feed
 
 import android.os.Environment
 import androidx.core.text.HtmlCompat
-import com.ismartcoding.lib.Readability4JPreprocessor
 import com.ismartcoding.lib.extensions.getFilenameExtension
 import com.ismartcoding.lib.extensions.isOk
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.html2md.MDConverter
+import com.ismartcoding.lib.readability4j.Readability4J
 import com.ismartcoding.lib.rss.DateParser
 import com.ismartcoding.lib.rss.model.RssItem
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.api.ApiResult
 import com.ismartcoding.plain.api.HttpClientManager
 import com.ismartcoding.plain.db.DFeedEntry
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.util.cio.*
-import io.ktor.utils.io.*
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.headers
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.util.cio.writeChannel
+import io.ktor.utils.io.copyAndClose
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import net.dankito.readability4j.extended.Readability4JExtended
-import net.dankito.readability4j.extended.processor.ArticleGrabberExtended
-import net.dankito.readability4j.extended.util.RegExUtilExtended
-import net.dankito.readability4j.model.ReadabilityOptions
-import net.dankito.readability4j.processor.MetadataParser
 import java.io.File
-import java.time.format.DateTimeFormatter
-import java.util.*
+import java.util.Locale
+import java.util.UUID
 
 fun RssItem.toDFeedEntry(
     feedId: String,
@@ -75,23 +72,15 @@ suspend fun DFeedEntry.fetchContentAsync(): ApiResult {
 
         if (response.isOk()) {
             val input = response.body<String>()
-            val options = ReadabilityOptions()
-            val regExUtil = RegExUtilExtended()
-            Readability4JExtended(
+            Readability4J.parse(
                 url,
-                input,
-                options = options,
-                regExUtil = regExUtil,
-                preprocessor = Readability4JPreprocessor(regExUtil),
-                metadataParser = MetadataParser(regExUtil),
-                articleGrabber = ArticleGrabberExtended(options, regExUtil),
-            ).parse().articleContent?.let { articleContent ->
+                input
+            ).articleContent?.let { articleContent ->
                 articleContent.selectFirst("h1")?.remove()
                 val c = articleContent.toString()
                 val mobilizedHtml = HtmlUtils.improveHtmlContent(c, HtmlUtils.getBaseUrl(url))
-                if (description.isEmpty() ||
-                    HtmlCompat.fromHtml(mobilizedHtml, HtmlCompat.FROM_HTML_MODE_LEGACY).length > description.length
-                ) { // If the retrieved text is smaller than the original one, then we certainly failed...
+                val summary = getSummary()
+                if (summary.isEmpty() || c.length >= summary.length) { // If the retrieved text is smaller than the original one, then we certainly failed...
                     val imagesList = HtmlUtils.getImageURLs(mobilizedHtml)
                     if (imagesList.isNotEmpty()) {
                         if (image.isEmpty()) {
@@ -102,7 +91,7 @@ suspend fun DFeedEntry.fetchContentAsync(): ApiResult {
                     if (image.isNotEmpty() && !image.startsWith("/")) {
                         val r = httpClient.get(image)
                         if (r.isOk()) {
-                            val dir = MainApp.instance.getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!.path + "/feeds"
+                            val dir = MainApp.instance.getExternalFilesDir(Environment.DIRECTORY_PICTURES)!!.path + "/feeds/${feedId}"
                             File(dir).mkdirs()
                             var path = "$dir/main-${CryptoHelper.sha1(image.toByteArray())}"
                             val extension = image.getFilenameExtension()
@@ -116,11 +105,8 @@ suspend fun DFeedEntry.fetchContentAsync(): ApiResult {
                         }
                     }
                     content = MDConverter().convert(mobilizedHtml)
-
-                    FeedEntryHelper.updateAsync(id) {
-                        this.image = this@fetchContentAsync.image
-                        this.content = this@fetchContentAsync.content
-                    }
+                    updatedAt = Clock.System.now()
+                    FeedEntryHelper.updateAsync(this)
                 }
             }
         }

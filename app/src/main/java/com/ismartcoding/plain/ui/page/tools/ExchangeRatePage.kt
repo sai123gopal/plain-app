@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,13 +26,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.FormatHelper
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.data.UIDataCache
-import com.ismartcoding.plain.data.preference.ExchangeConfig
-import com.ismartcoding.plain.data.preference.ExchangeRatePreference
-import com.ismartcoding.plain.data.preference.ExchangeRateProvider
-import com.ismartcoding.plain.data.preference.LocalExchangeRate
+import com.ismartcoding.plain.preference.ExchangeConfig
+import com.ismartcoding.plain.preference.ExchangeRatePreference
+import com.ismartcoding.plain.preference.ExchangeRateProvider
+import com.ismartcoding.plain.preference.LocalExchangeRate
 import com.ismartcoding.plain.extensions.formatDateTime
 import com.ismartcoding.plain.features.DExchangeRate
 import com.ismartcoding.plain.helpers.ExchangeHelper
@@ -68,7 +67,7 @@ fun ExchangeRatePage(navController: NavHostController) {
                     if (r != null) {
                         updatedTs = System.currentTimeMillis()
                     }
-                    setRefreshState(RefreshContentState.Stop)
+                    setRefreshState(RefreshContentState.Finished)
                 }
             }
 
@@ -90,7 +89,7 @@ fun ExchangeRatePage(navController: NavHostController) {
             actions = {
                 if (rateItems != null) {
                     PIconButton(
-                        imageVector = Icons.Outlined.Add,
+                        icon = Icons.Outlined.Add,
                         contentDescription = stringResource(R.string.add),
                         tint = MaterialTheme.colorScheme.onSurface,
                         onClick = {
@@ -116,6 +115,7 @@ fun ExchangeRatePage(navController: NavHostController) {
                             .fillMaxHeight(),
                     ) {
                         item {
+                            TopSpace()
                             DisplayText(
                                 title = stringResource(id = R.string.exchange_rate),
                                 description = if (rateItems != null) stringResource(R.string.date) + " " + UIDataCache.current().latestExchangeRates?.date?.formatDateTime() else "",
@@ -127,7 +127,7 @@ fun ExchangeRatePage(navController: NavHostController) {
                                     PListItem(
                                         title = rate.rate.currency,
                                         value = FormatHelper.formatMoney(rate.value, rate.rate.currency),
-                                        iconPainter =
+                                        icon =
                                             painterResource(
                                                 id = ResourceHelper.getCurrencyFlagResId(context, rate.rate.currency),
                                             ),
@@ -152,7 +152,7 @@ fun ExchangeRatePage(navController: NavHostController) {
                                             expanded = showContextMenu.value && selectedItem == rate.rate,
                                             onDismissRequest = { showContextMenu.value = false },
                                         ) {
-                                            DropdownMenuItem(text = { Text(stringResource(id = R.string.delete)) }, onClick = {
+                                            PDropdownMenuItem(text = { Text(stringResource(id = R.string.delete)) }, onClick = {
                                                 scope.launch {
                                                     showContextMenu.value = false
                                                     val selected = config.selected
@@ -173,32 +173,33 @@ fun ExchangeRatePage(navController: NavHostController) {
                         }
                     }
                 }
-                TextFieldDialog(
-                    visible = editValueDialogVisible,
-                    title = selectedItem?.currency ?: "",
-                    value = editValue,
-                    placeholder = "",
-                    onValueChange = {
-                        editValue = it
-                    },
-                    onDismissRequest = {
-                        editValueDialogVisible = false
-                    },
-                    keyboardOptions =
+                if (editValueDialogVisible) {
+                    TextFieldDialog(
+                        title = selectedItem?.currency ?: "",
+                        value = editValue,
+                        placeholder = "",
+                        onValueChange = {
+                            editValue = it
+                        },
+                        onDismissRequest = {
+                            editValueDialogVisible = false
+                        },
+                        keyboardOptions =
                         KeyboardOptions(
                             keyboardType = KeyboardType.Number,
                             imeAction = ImeAction.Done,
                         ),
-                    onConfirm = {
-                        scope.launch {
-                            config.base = selectedItem!!.currency
-                            config.value = editValue.toDoubleOrNull() ?: 100.0
-                            withIO { ExchangeRatePreference.putAsync(context, config) }
-                            updatedTs = System.currentTimeMillis()
-                            editValueDialogVisible = false
-                        }
-                    },
-                )
+                        onConfirm = {
+                            scope.launch {
+                                config.base = selectedItem!!.currency
+                                config.value = editValue.toDoubleOrNull() ?: 100.0
+                                withIO { ExchangeRatePreference.putAsync(context, config) }
+                                updatedTs = System.currentTimeMillis()
+                                editValueDialogVisible = false
+                            }
+                        },
+                    )
+                }
             },
         )
     }

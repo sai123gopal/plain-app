@@ -1,10 +1,12 @@
 package com.ismartcoding.plain.data
 
+import com.ismartcoding.lib.helpers.JsonHelper
+import com.ismartcoding.lib.helpers.JsonHelper.jsonDecode
 import com.ismartcoding.plain.InitQuery
 import com.ismartcoding.plain.NetworkQuery
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.VocabulariesQuery
-import com.ismartcoding.plain.data.enums.ConfigType
+import com.ismartcoding.plain.enums.ConfigType
 import com.ismartcoding.plain.db.DBox
 import com.ismartcoding.plain.extensions.toRoute
 import com.ismartcoding.plain.extensions.toRule
@@ -49,12 +51,8 @@ class UIDataCache {
         configs = data.configs.map { it.configFragment }.toMutableList()
         rules = configs?.filter { it.group == ConfigType.RULE.value }?.map { it.toRule() }?.toMutableList()
         routes = configs?.filter { it.group == ConfigType.ROUTE.value }?.map { it.toRoute() }?.toMutableList()
-        val json =
-            Json {
-                ignoreUnknownKeys = true
-            }
         configs?.find { it.group == ConfigType.SYSTEM.value }?.let {
-            systemConfig = json.decodeFromString(it.value)
+            systemConfig = jsonDecode(it.value)
         }
         wireGuards = data.wireGuards.map { it.wireGuardFragment.toWireGuard() }.toMutableList()
     }

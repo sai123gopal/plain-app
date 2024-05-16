@@ -22,12 +22,11 @@ cat > ./local.properties <<EOF
 sdk.dir=/Users/$USER/Library/Android/sdk
 EOF
 
-echo "Build PlainApp-$(getVersionName).apk..."
-
-./gradlew assembleFreeRelease || err_and_exit "build failed"
-
-echo "Copying apk file..."
+./gradlew assembleGithubRelease || err_and_exit "build failed"
+./gradlew assembleChinaRelease || err_and_exit "build failed"
 
 BUILD_FILE="PlainApp-$(getVersionName).apk"
+mv ./app/build/outputs/apk/github/release/app-github-release.apk ./app/build/outputs/apk/github/release/$BUILD_FILE
 
-mv ./app/build/outputs/apk/free/release/app-free-release.apk ./app/build/outputs/apk/free/release/$BUILD_FILE
+BUILD_FILE="PlainApp-$(getVersionName)-china.apk"
+mv ./app/build/outputs/apk/china/release/app-china-release.apk ./app/build/outputs/apk/china/release/$BUILD_FILE

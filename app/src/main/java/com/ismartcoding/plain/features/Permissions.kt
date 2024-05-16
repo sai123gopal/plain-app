@@ -5,22 +5,33 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Contacts
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Numbers
+import androidx.compose.material.icons.outlined.Sms
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.channel.sendEvent
-import com.ismartcoding.lib.extensions.allowSensitivePermissions
 import com.ismartcoding.lib.extensions.hasPermission
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.isRPlus
+import com.ismartcoding.lib.isSPlus
 import com.ismartcoding.lib.isTPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.preference.ApiPermissionsPreference
+import com.ismartcoding.plain.enums.AppFeatureType
+import com.ismartcoding.plain.preference.ApiPermissionsPreference
 import com.ismartcoding.plain.features.locale.LocaleHelper.getString
 import com.ismartcoding.plain.helpers.FileHelper
 import com.ismartcoding.plain.packageManager
@@ -50,7 +61,8 @@ enum class Permission {
     NOTIFICATION_LISTENER,
     READ_PHONE_STATE,
     READ_PHONE_NUMBERS,
-    NONE,
+    SCHEDULE_EXACT_ALARM,
+    NONE
     ;
 
     fun getText(): String {
@@ -66,7 +78,7 @@ enum class Permission {
         return apiPermissions.contains(this.toString())
     }
 
-    private fun toSysPermission(): String {
+    fun toSysPermission(): String {
         return "android.permission.${this.name}"
     }
 
@@ -107,19 +119,7 @@ enum class Permission {
         if (can(context)) {
             return true
         } else {
-            if (this == POST_NOTIFICATIONS) {
-                if (isTPlus()) {
-                    if (!ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.instance.get()!!, this.toSysPermission())) {
-                        getEnableNotificationIntent(context)
-                    } else {
-                        sendEvent(RequestPermissionEvent(this))
-                    }
-                } else {
-                    getEnableNotificationIntent(context)
-                }
-            } else {
-                sendEvent(RequestPermissionEvent(this))
-            }
+            sendEvent(RequestPermissionsEvent(this))
         }
 
         return false
@@ -127,19 +127,8 @@ enum class Permission {
 
     companion object {
         fun getEnableNotificationIntent(context: Context): Intent {
-            val intent = Intent()
-            try {
-                intent.action = Settings.ACTION_APP_NOTIFICATION_SETTINGS
-                intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                intent.putExtra(Settings.EXTRA_CHANNEL_ID, context.applicationInfo.uid)
-                intent.putExtra("app_package", context.packageName)
-                intent.putExtra("app_uid", context.applicationInfo.uid)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                intent.data = Uri.fromParts("package", context.packageName, null)
-            }
-            return intent
+            return Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         }
     }
 
@@ -224,15 +213,29 @@ enum class Permission {
             }
         } else if (this == POST_NOTIFICATIONS) {
             val permission = this.toSysPermission()
-            if (isTPlus()) {
-                val activity = MainActivity.instance.get()!!
-                if (!ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)) {
-                    intentLauncher?.launch(Permission.getEnableNotificationIntent(context))
+            val activity = MainActivity.instance.get()!!
+            if (ActivityCompat.shouldShowRequestPermissionRationale(activity, permission) || !isTPlus()) {
+                val intent = Permission.getEnableNotificationIntent(context)
+                if (intent.resolveActivity(packageManager) != null) {
+                    intentLauncher?.launch(intent)
                 } else {
-                    launcher?.launch(permission)
+                    DialogHelper.showMessage(
+                        "ActivityNotFoundException: No Activity found to handle Intent act=android.settings.ACTION_APP_NOTIFICATION_SETTINGS",
+                    )
                 }
             } else {
-                intentLauncher?.launch(Permission.getEnableNotificationIntent(context))
+                launcher?.launch(permission)
+            }
+        } else if (this == SCHEDULE_EXACT_ALARM) {
+            if (isSPlus()) {
+                val intent = Intent(ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                if (intent.resolveActivity(packageManager) != null) {
+                    intentLauncher?.launch(intent)
+                } else {
+                    DialogHelper.showMessage(
+                        "ActivityNotFoundException: No Activity found to handle Intent act=android.settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM",
+                    )
+                }
             }
         } else {
             launcher?.launch(this.toSysPermission())
@@ -240,21 +243,70 @@ enum class Permission {
     }
 }
 
-data class PermissionItem(val permission: Permission, val granted: Boolean)
+data class PermissionItem(val icon: ImageVector?, val permission: Permission, val permissions: Set<Permission>, var granted: Boolean = false) {
+
+    companion object {
+        fun create(context: Context, icon: ImageVector?, permission: Permission, permissions: Set<Permission> = setOf(permission)): PermissionItem {
+            return PermissionItem(icon, permission, permissions).apply {
+                granted = permissions.all { it.can(context) }
+            }
+        }
+    }
+}
 
 object Permissions {
-    private val map = mutableMapOf<Permission, ActivityResultLauncher<String>>()
+    private val launcherMap = mutableMapOf<Permission, ActivityResultLauncher<String>>()
     private val events = mutableListOf<Job>()
     private val intentLauncherMap = mutableMapOf<Permission, ActivityResultLauncher<Intent>>()
+    private lateinit var multipleLauncher: ActivityResultLauncher<Array<String>>
+
+    suspend fun checkAsync(context: Context, permissions: Set<Permission>) {
+        val apiPermissions = ApiPermissionsPreference.getAsync(context).toMutableSet()
+        if (apiPermissions.contains(Permission.WRITE_CONTACTS.toString())) {
+            apiPermissions.add(Permission.READ_CONTACTS.toString())
+        }
+        if (apiPermissions.contains(Permission.WRITE_CALL_LOG.toString())) {
+            apiPermissions.add(Permission.READ_CALL_LOG.toString())
+        }
+        for (item in permissions.map { it.toString() }) {
+            if (!apiPermissions.contains(item)) {
+                throw Exception("no_permission")
+            }
+        }
+    }
+
+    fun allCan(context: Context, permissions: Set<Permission>): Boolean {
+        return permissions.all { it.can(context) }
+    }
 
     fun getWebList(context: Context): List<PermissionItem> {
-        val permissions = mutableListOf(Permission.WRITE_EXTERNAL_STORAGE, Permission.READ_CONTACTS, Permission.WRITE_CONTACTS)
-        if (context.allowSensitivePermissions()) {
-            permissions.addAll(listOf(Permission.READ_SMS, Permission.READ_CALL_LOG, Permission.WRITE_CALL_LOG))
+        val list = mutableListOf<PermissionItem>()
+        list.add(
+            PermissionItem.create(
+                context, Icons.Outlined.Folder, Permission.WRITE_EXTERNAL_STORAGE
+            )
+        )
+        if (AppFeatureType.NOTIFICATIONS.has()) {
+            list.add(
+                PermissionItem.create(context, Icons.Outlined.Notifications, Permission.NOTIFICATION_LISTENER)
+            )
         }
-        permissions.addAll(listOf(Permission.CALL_PHONE, Permission.NOTIFICATION_LISTENER, Permission.READ_PHONE_STATE, Permission.READ_PHONE_NUMBERS, Permission.SYSTEM_ALERT_WINDOW,  Permission.NONE))
+        list.add(
+            PermissionItem.create(context, Icons.Outlined.Contacts, Permission.WRITE_CONTACTS, setOf(Permission.READ_CONTACTS, Permission.WRITE_CONTACTS))
+        )
 
-        return permissions.map { PermissionItem(it, it.can(context)) }
+        if (AppFeatureType.SOCIAL.has()) {
+            list.add(PermissionItem.create(context, Icons.Outlined.Sms, Permission.READ_SMS))
+            list.add(PermissionItem.create(context, Icons.AutoMirrored.Outlined.List, Permission.WRITE_CALL_LOG, setOf(Permission.READ_CALL_LOG, Permission.WRITE_CALL_LOG)))
+        }
+        list.add(
+            PermissionItem.create(context, Icons.Outlined.Call, Permission.CALL_PHONE)
+        )
+        list.add(
+            PermissionItem.create(context, Icons.Outlined.Numbers, Permission.READ_PHONE_NUMBERS, setOf(Permission.READ_PHONE_STATE, Permission.READ_PHONE_NUMBERS))
+        )
+        list.add(PermissionItem(null, Permission.NONE, setOf(Permission.NONE)))
+        return list
     }
 
     fun init(activity: AppCompatActivity) {
@@ -276,11 +328,13 @@ object Permissions {
             Permission.READ_MEDIA_AUDIO,
             Permission.READ_PHONE_STATE,
             Permission.READ_PHONE_NUMBERS,
+            Permission.SCHEDULE_EXACT_ALARM,
         ).forEach { permission ->
-            map[permission] =
+            launcherMap[permission] =
                 activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) {
                     canContinue = true
-                    sendEvent(PermissionResultEvent(permission))
+                    val map = mapOf(permission.toSysPermission() to permission.can(MainApp.instance))
+                    sendEvent(PermissionsResultEvent(map))
                 }
         }
 
@@ -290,24 +344,36 @@ object Permissions {
             Permission.SYSTEM_ALERT_WINDOW,
             Permission.POST_NOTIFICATIONS,
             Permission.NOTIFICATION_LISTENER,
+            Permission.SCHEDULE_EXACT_ALARM,
         ).forEach { permission ->
             intentLauncherMap[permission] =
                 activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
                     canContinue = true
-                    sendEvent(PermissionResultEvent(permission))
+                    val map = mapOf(permission.toSysPermission() to permission.can(MainApp.instance))
+                    sendEvent(PermissionsResultEvent(map))
                 }
         }
 
+        multipleLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            canContinue = true
+            sendEvent(PermissionsResultEvent(permissions))
+        }
+
         events.add(
-            receiveEventHandler<RequestPermissionEvent> { event ->
-                event.permission.request(MainApp.instance, map[event.permission], intentLauncherMap[event.permission])
+            receiveEventHandler<RequestPermissionsEvent> { event ->
+                if (event.permissions.size == 1) {
+                    val permission = event.permissions.first()
+                    permission.request(MainApp.instance, launcherMap[permission], intentLauncherMap[permission])
+                } else {
+                    multipleLauncher.launch(event.permissions.map { it.toSysPermission() }.toTypedArray())
+                }
             },
         )
     }
 
     private var canContinue = false
 
-    private suspend fun ensureNotificationAsync(context: Context): Boolean {
+    suspend fun ensureNotificationAsync(context: Context): Boolean {
         val permission = Permission.POST_NOTIFICATIONS
         val ready = isNotificationPermissionReadyWithRequest(context)
         if (!ready) {
@@ -327,7 +393,7 @@ object Permissions {
     private fun isNotificationPermissionReadyWithRequest(context: Context): Boolean {
         val permission = Permission.POST_NOTIFICATIONS
         if (!permission.can(context)) {
-            sendEvent(RequestPermissionEvent(permission))
+            sendEvent(RequestPermissionsEvent(permission))
             return false
         }
 
@@ -343,12 +409,12 @@ object Permissions {
         if (permission.can(context)) {
             callback()
         } else {
-            DialogHelper.showConfirmDialog(context, getString(R.string.confirm), getString(stringKey)) {
+            DialogHelper.showConfirmDialog(getString(R.string.confirm), getString(stringKey), confirmButton = Pair(getString(R.string.ok)) {
                 coIO {
                     ensureNotificationAsync(context)
                     callback()
                 }
-            }
+            })
         }
     }
 

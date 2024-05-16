@@ -4,18 +4,25 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
+import com.google.common.io.ByteStreams
+import com.google.common.io.FileWriteMode
+import com.google.common.io.Files
 import com.ismartcoding.lib.channel.sendEvent
+import com.ismartcoding.lib.extensions.compress
 import com.ismartcoding.lib.extensions.getFinalPath
 import com.ismartcoding.lib.extensions.isImageFast
 import com.ismartcoding.lib.extensions.newFile
 import com.ismartcoding.lib.extensions.parse
 import com.ismartcoding.lib.extensions.scanFileByConnection
 import com.ismartcoding.lib.extensions.toThumbBytesAsync
+import com.ismartcoding.lib.extensions.urlEncode
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.JsonHelper
+import com.ismartcoding.lib.helpers.JsonHelper.jsonDecode
 import com.ismartcoding.lib.helpers.ZipHelper
+import com.ismartcoding.lib.isSPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.lib.upnp.UPnPController
 import com.ismartcoding.plain.BuildConfig
@@ -24,18 +31,18 @@ import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.data.DownloadFileItem
 import com.ismartcoding.plain.data.DownloadFileItemWrap
 import com.ismartcoding.plain.data.UploadInfo
-import com.ismartcoding.plain.data.enums.DataType
-import com.ismartcoding.plain.data.enums.PasswordType
-import com.ismartcoding.plain.data.preference.AuthTwoFactorPreference
-import com.ismartcoding.plain.data.preference.PasswordPreference
-import com.ismartcoding.plain.data.preference.PasswordTypePreference
+import com.ismartcoding.plain.enums.DataType
+import com.ismartcoding.plain.enums.PasswordType
+import com.ismartcoding.plain.preference.AuthTwoFactorPreference
+import com.ismartcoding.plain.preference.PasswordPreference
+import com.ismartcoding.plain.preference.PasswordTypePreference
 import com.ismartcoding.plain.features.ConfirmToAcceptLoginEvent
-import com.ismartcoding.plain.features.audio.AudioHelper
+import com.ismartcoding.plain.features.audio.AudioMediaStoreHelper
 import com.ismartcoding.plain.features.file.FileSortBy
-import com.ismartcoding.plain.features.image.ImageHelper
+import com.ismartcoding.plain.features.image.ImageMediaStoreHelper
 import com.ismartcoding.plain.features.media.CastPlayer
-import com.ismartcoding.plain.features.pkg.PackageHelper
-import com.ismartcoding.plain.features.video.VideoHelper
+import com.ismartcoding.plain.features.PackageHelper
+import com.ismartcoding.plain.features.video.VideoMediaStoreHelper
 import com.ismartcoding.plain.helpers.TempHelper
 import com.ismartcoding.plain.helpers.UrlHelper
 import com.ismartcoding.plain.web.websocket.WebSocketSession
@@ -52,12 +59,14 @@ import io.ktor.http.content.forEachPart
 import io.ktor.http.content.streamProvider
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCallPipeline
+import io.ktor.server.application.ApplicationStopPreparing
+import io.ktor.server.application.call
 import io.ktor.server.application.install
-import io.ktor.server.http.content.singlePageApplication
-import io.ktor.server.http.content.vue
+import io.ktor.server.http.content.SPAConfig
+import io.ktor.server.http.content.staticResources
 import io.ktor.server.plugins.autohead.AutoHeadResponse
 import io.ktor.server.plugins.cachingheaders.CachingHeaders
-import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.conditionalheaders.ConditionalHeaders
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
@@ -85,14 +94,13 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import io.ktor.websocket.send
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileOutputStream
-import java.net.URLEncoder
-import java.nio.ByteBuffer
 import java.util.Date
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -127,7 +135,7 @@ object HttpModule {
 
         install(ConditionalHeaders)
         install(WebSockets)
-        install(Compression)
+//        install(Compression) // this will slow down the download speed
         install(ForwardedHeaders)
         install(PartialContent)
         install(AutoHeadResponse)
@@ -140,14 +148,56 @@ object HttpModule {
             )
         }
 
+        intercept(ApplicationCallPipeline.Plugins) {
+            if (!TempData.webEnabled) {
+                call.respond(HttpStatusCode.NotFound)
+                return@intercept finish()
+            }
+        }
+
         routing {
-            singlePageApplication {
-                useResources = true
-                vue("web")
+            val config = SPAConfig()
+            config.filesPath = "web"
+            staticResources(config.applicationRoute, config.filesPath, index = config.defaultPage) {
+                cacheControl {
+                    arrayListOf(
+                        CacheControl.NoCache(CacheControl.Visibility.Public),
+                        CacheControl.NoStore(CacheControl.Visibility.Public),
+                    )
+                }
+                default(config.defaultPage)
             }
 
             get("/health_check") {
-                call.respond(HttpStatusCode.OK, "Server is running well")
+                call.respond(HttpStatusCode.OK, BuildConfig.APPLICATION_ID)
+            }
+
+            get("/shutdown") {
+                val ip = call.request.origin.remoteHost
+                LogCat.d("$ip is shutting down the server")
+                if (ip != "localhost") {
+                    call.respond(HttpStatusCode.Forbidden)
+                    return@get
+                }
+
+                HttpServerManager.wsSessions.forEach {
+                    it.session.close()
+                }
+                HttpServerManager.wsSessions.clear()
+                val latch = CompletableDeferred<Nothing>()
+                val application = call.application
+                val environment = application.environment
+                application.launch {
+                    latch.join()
+                    application.monitor.raise(ApplicationStopPreparing, environment)
+                    application.dispose()
+                }
+
+                try {
+                    call.respond(HttpStatusCode.Gone)
+                } finally {
+                    latch.cancel()
+                }
             }
 
             get("/media/{id}") {
@@ -207,7 +257,7 @@ object HttpModule {
                     return@get
                 }
 
-                val fileName = URLEncoder.encode(q["name"] ?: "${folder.name}.zip", "UTF-8").replace("+", "%20")
+                val fileName = (q["name"] ?: "${folder.name}.zip").urlEncode().replace("+", "%20")
                 call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
                 call.response.header(HttpHeaders.ContentType, ContentType.Application.Zip.toString())
                 call.respondOutputStream(ContentType.Application.Zip) {
@@ -238,19 +288,19 @@ object HttpModule {
                     val context = MainApp.instance
                     when (type) {
                         DataType.PACKAGE.name -> {
-                            paths = PackageHelper.search(q, Int.MAX_VALUE, 0).map { DownloadFileItem(it.path, "${it.name.replace(" ", "")}-${it.id}.apk") }
+                            paths = PackageHelper.search(q, Int.MAX_VALUE, 0, FileSortBy.NAME_ASC).map { DownloadFileItem(it.path, "${it.name.replace(" ", "")}-${it.id}.apk") }
                         }
 
                         DataType.VIDEO.name -> {
-                            paths = VideoHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = VideoMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.AUDIO.name -> {
-                            paths = AudioHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = AudioMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.IMAGE.name -> {
-                            paths = ImageHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = ImageMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.FILE.name -> {
@@ -268,7 +318,7 @@ object HttpModule {
 
                     val items = paths.map { DownloadFileItemWrap(File(it.path), it.name) }.filter { it.file.exists() }
                     val dirs = items.filter { it.file.isDirectory }
-                    val fileName = URLEncoder.encode(json.optString("name").ifEmpty { "download.zip" }, "UTF-8").replace("+", "%20")
+                    val fileName = (json.optString("name").ifEmpty { "download.zip" }).urlEncode().replace("+", "%20")
                     call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
                     call.response.header(HttpHeaders.ContentType, ContentType.Application.Zip.toString())
                     call.respondOutputStream(ContentType.Application.Zip) {
@@ -316,7 +366,7 @@ object HttpModule {
                         val packageName = path.substring(10)
                         val bitmap = PackageHelper.getIcon(packageName)
                         val bytes = ByteArrayOutputStream().use {
-                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                            bitmap.compress(80, it)
                             it.toByteArray()
                         }
                         call.respond(bytes)
@@ -327,7 +377,7 @@ object HttpModule {
                             return@get
                         }
 
-                        val fileName = URLEncoder.encode(q["name"] ?: file.name, "UTF-8").replace("+", "%20")
+                        val fileName = (q["name"] ?: file.name).urlEncode().replace("+", "%20")
                         if (q["dl"] == "1") {
                             call.response.header("Content-Disposition", "attachment;filename=\"${fileName}\";filename*=utf-8''\"${fileName}\"")
                         } else {
@@ -339,7 +389,10 @@ object HttpModule {
                         val centerCrop = q["cc"]?.toBooleanStrictOrNull() ?: true
                         // get video/image thumbnail
                         if (w != null && h != null) {
-                            call.respondBytes(file.toThumbBytesAsync(MainApp.instance, w, h, centerCrop))
+                            val bytes = file.toThumbBytesAsync(MainApp.instance, w, h, centerCrop)
+                            if (bytes != null) {
+                                call.respondBytes(bytes)
+                            }
                             return@get
                         }
 
@@ -410,7 +463,7 @@ object HttpModule {
                                             return@forEachPart
                                         }
 
-                                        info = Json.decodeFromString<UploadInfo>(requestStr)
+                                        info = jsonDecode<UploadInfo>(requestStr)
                                     }
 
                                     "file" -> {
@@ -433,7 +486,9 @@ object HttpModule {
                                         // use append file way
                                         val noSplitFiles = false
                                         if (noSplitFiles) {
-                                            FileOutputStream(destFile, true).use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                            part.streamProvider().use { input ->
+                                                Files.asByteSink(destFile).writeFrom(input)
+                                            }
                                             if (info.total - 1 == info.index) {
                                                 MainApp.instance.scanFileByConnection(destFile, null)
                                             }
@@ -443,10 +498,14 @@ object HttpModule {
 //                                                if (destFile.exists() && destFile.length() == info.size) {
 //                                                    // skip if the part file is already uploaded
 //                                                } else {
-                                                destFile.outputStream().use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                                part.streamProvider().use { input ->
+                                                    Files.asByteSink(destFile).writeFrom(input)
+                                                }
                                                 //  }
                                             } else {
-                                                destFile.outputStream().use { part.streamProvider().use { input -> input.copyTo(it) } }
+                                                part.streamProvider().use { input ->
+                                                    Files.asByteSink(destFile).writeFrom(input)
+                                                }
                                             }
 
                                             if (info.total - 1 == info.index) {
@@ -454,10 +513,13 @@ object HttpModule {
                                                     // merge part files into original file
                                                     destFile = File("${info.dir}/$fileName")
                                                     val partFiles = File(info.dir).listFiles()?.filter { it.name.startsWith("$fileName.part") }?.sortedBy { it.name } ?: arrayListOf()
-                                                    val fos = FileOutputStream(destFile, true)
-                                                    partFiles.forEach {
-                                                        it.inputStream().use { input -> input.copyTo(fos) }
-                                                        it.delete()
+                                                    Files.asByteSink(destFile, FileWriteMode.APPEND).openStream().use { fos ->
+                                                        partFiles.forEach { partFile ->
+                                                            Files.asByteSource(partFile).openStream().use { input ->
+                                                                ByteStreams.copy(input, fos)
+                                                            }
+                                                            partFile.delete()
+                                                        }
                                                     }
                                                 }
                                                 MainApp.instance.scanFileByConnection(destFile, null)
@@ -492,7 +554,7 @@ object HttpModule {
                     call.respond(HttpStatusCode.Forbidden, "web_access_disabled")
                     return@post
                 }
-                HttpServerManager.clientIpCache[clientId] = call.request.origin.remoteHost
+                HttpServerManager.clientIpCache[clientId] = call.request.origin.remoteAddress
                 if (PasswordTypePreference.getValueAsync(MainApp.instance) == PasswordType.NONE) {
                     call.respondText(HttpServerManager.resetPasswordAsync())
                 } else {
@@ -502,6 +564,10 @@ object HttpModule {
 
             webSocket("/") {
                 val q = call.request.queryParameters
+                if (q["test"] == "1") {
+                    close(CloseReason(CloseReason.Codes.NORMAL, BuildConfig.APPLICATION_ID))
+                    return@webSocket
+                }
                 val clientId = q["cid"] ?: ""
                 if (clientId.isEmpty()) {
                     LogCat.e("ws: `cid` is missing")
@@ -520,7 +586,7 @@ object HttpModule {
                                     val token = HttpServerManager.hashToToken(hash)
                                     val decryptedBytes = CryptoHelper.aesDecrypt(token, frame.readBytes())
                                     if (decryptedBytes != null) {
-                                        r = Json.decodeFromString<AuthRequest>(decryptedBytes.decodeToString())
+                                        r = jsonDecode<AuthRequest>(decryptedBytes.decodeToString())
                                     }
                                     if (r?.password == hash) {
                                         val event = ConfirmToAcceptLoginEvent(this, clientId, r)

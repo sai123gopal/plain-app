@@ -13,8 +13,8 @@ import com.ismartcoding.plain.R
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.api.BoxApi
 import com.ismartcoding.plain.data.*
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
 import com.ismartcoding.plain.databinding.DialogRulesBinding
 import com.ismartcoding.plain.databinding.ViewListItemBinding
 import com.ismartcoding.plain.features.ActionEvent
@@ -41,16 +41,16 @@ class RulesDialog : BaseDialog<DialogRulesBinding>() {
             onBind {
                 val binding = getBinding<ViewListItemBinding>()
                 val m = getModel<Rule>()
-                binding.bindRule(requireContext(), lifecycleScope, m)
+                binding.bindRule(lifecycleScope, m)
                 binding.enableSwipeMenu(true)
                 binding.setRightSwipeButton(getString(R.string.delete)) {
-                    DialogHelper.confirmToAction(requireContext(), R.string.confirm_to_delete) {
+                    DialogHelper.confirmToAction(R.string.confirm_to_delete) {
                         lifecycleScope.launch {
                             DialogHelper.showLoading()
                             val r = withIO { BoxApi.mixMutateAsync(DeleteConfigMutation(m.id)) }
                             DialogHelper.hideLoading()
                             if (!r.isSuccess()) {
-                                DialogHelper.showErrorDialog(requireContext(), r.getErrorMessage())
+                                DialogHelper.showErrorDialog(r.getErrorMessage())
                                 return@launch
                             }
 

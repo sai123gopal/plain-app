@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 
@@ -19,19 +18,24 @@ import androidx.compose.ui.unit.dp
 fun PIconButton(
     modifier: Modifier = Modifier,
     containerModifier: Modifier = Modifier,
-    imageVector: ImageVector,
+    icon: Any,
     contentDescription: String?,
     tint: Color = LocalContentColor.current,
     showBadge: Boolean = false,
-    badgeColor: Color = MaterialTheme.colorScheme.primary,
     isHaptic: Boolean? = false,
     isSound: Boolean? = false,
+    enabled: Boolean = true,
     onClick: () -> Unit = {},
 ) {
     val view = LocalView.current
 
     IconButton(
         modifier = containerModifier,
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors().copy(
+            contentColor = tint,
+            disabledContentColor = tint.copy(alpha = 0.38f)
+        ),
         onClick = {
             if (isHaptic == true) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             if (isSound == true) view.playSoundEffect(SoundEffectConstants.CLICK)
@@ -42,28 +46,26 @@ fun PIconButton(
             BadgedBox(
                 badge = {
                     Badge(
-                        modifier =
-                            Modifier
-                                .size(8.dp)
-                                .offset(x = (-1).dp, y = 0.dp)
-                                .clip(CircleShape),
-                        containerColor = badgeColor,
+                        modifier = Modifier
+                            .size(8.dp)
+                            .offset(x = (1).dp, y = (-4).dp)
+                            .clip(CircleShape),
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
                     )
-                },
+                }
             ) {
-                Icon(
+                PIcon(
                     modifier = modifier,
-                    imageVector = imageVector,
+                    icon = icon,
                     contentDescription = contentDescription,
-                    tint = tint,
                 )
             }
         } else {
-            Icon(
+            PIcon(
                 modifier = modifier,
-                imageVector = imageVector,
+                icon = icon,
                 contentDescription = contentDescription,
-                tint = tint,
             )
         }
     }

@@ -14,9 +14,9 @@ import com.ismartcoding.plain.R
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.api.BoxApi
 import com.ismartcoding.plain.data.UIDataCache
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.preference.DeviceSortByPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.preference.DeviceSortByPreference
 import com.ismartcoding.plain.databinding.DialogDevicesBinding
 import com.ismartcoding.plain.databinding.ViewListItemBinding
 import com.ismartcoding.plain.extensions.sorted
@@ -59,13 +59,13 @@ class DevicesDialog : BaseDialog<DialogDevicesBinding>() {
                 binding.bindDevice(requireContext(), m)
                 binding.enableSwipeMenu(true)
                 binding.setRightSwipeButton(getString(R.string.delete)) {
-                    DialogHelper.confirmToAction(requireContext(), R.string.confirm_to_delete) {
+                    DialogHelper.confirmToAction(R.string.confirm_to_delete) {
                         lifecycleScope.launch {
                             DialogHelper.showLoading()
                             val r = withIO { BoxApi.mixMutateAsync(DeleteDeviceMutation(m.id)) }
                             DialogHelper.hideLoading()
                             if (!r.isSuccess()) {
-                                DialogHelper.showErrorDialog(requireContext(), r.getErrorMessage())
+                                DialogHelper.showErrorDialog(r.getErrorMessage())
                                 return@launch
                             }
 

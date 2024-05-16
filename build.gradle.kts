@@ -5,15 +5,15 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.1.4")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10")
-        classpath("com.google.gms:google-services:4.4.0")
-        classpath("com.google.firebase:firebase-crashlytics-gradle:2.9.9")
+        classpath(libs.gradle)
+        classpath(libs.kotlin.gradle.plugin)
+        classpath(libs.google.services)
+        classpath(libs.firebase.crashlytics.gradle)
     }
 }
 
 plugins {
-    id("com.google.devtools.ksp") version "1.9.10-1.0.13" apply false
+    alias(libs.plugins.devtools.ksp) apply false
 }
 
 allprojects {
@@ -25,5 +25,5 @@ allprojects {
 }
 
 tasks.register<Delete>("clean").configure {
-    delete(rootProject.buildDir)
+    delete(rootProject.layout.buildDirectory)
 }

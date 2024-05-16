@@ -4,7 +4,9 @@ import android.util.Base64
 import com.ismartcoding.lib.extensions.getFilenameExtension
 import com.ismartcoding.lib.helpers.CryptoHelper
 import com.ismartcoding.lib.helpers.NetworkHelper
+import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.TempData
+import com.ismartcoding.plain.enums.AppChannelType
 
 object UrlHelper {
     private val mediaPathMap = mutableMapOf<String, String>() // format: <short_path>:<raw_path>
@@ -21,6 +23,18 @@ object UrlHelper {
         return "http://${NetworkHelper.getDeviceIP4()}:${TempData.httpPort}/callback/cast"
     }
 
+    fun getHealthCheckUrl(): String {
+        return "http://localhost:${TempData.httpPort}/health_check"
+    }
+
+    fun getWsTestUrl(): String {
+        return "ws://localhost:${TempData.httpPort}?test=1"
+    }
+
+    fun getShutdownUrl(): String {
+        return "http://localhost:${TempData.httpPort}/shutdown"
+    }
+
     fun getMediaPath(id: String): String {
         return mediaPathMap[id] ?: ""
     }
@@ -28,5 +42,21 @@ object UrlHelper {
     fun decrypt(id: String): String {
         val bytes = Base64.decode(id, Base64.NO_WRAP)
         return CryptoHelper.aesDecrypt(TempData.urlToken, bytes)?.decodeToString() ?: ""
+    }
+
+    fun getPolicyUrl(): String {
+        if (BuildConfig.CHANNEL == AppChannelType.CHINA.name) {
+            return "https://www.plain.icu/policy-cn.html"
+        }
+
+        return "https://www.plain.icu/policy.html"
+    }
+
+    fun getTermsUrl(): String {
+        if (BuildConfig.CHANNEL == AppChannelType.CHINA.name) {
+            return "https://www.plain.icu/policy-cn.html"
+        }
+
+        return "https://www.plain.icu/terms.html"
     }
 }

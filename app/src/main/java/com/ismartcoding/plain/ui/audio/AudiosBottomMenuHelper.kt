@@ -6,17 +6,17 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import com.ismartcoding.lib.brv.utils.bindingAdapter
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.ShareHelper
+import com.ismartcoding.plain.helpers.ShareHelper
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.DataType
-import com.ismartcoding.plain.data.preference.AudioPlaylistPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.enums.DataType
+import com.ismartcoding.plain.preference.AudioPlaylistPreference
 import com.ismartcoding.plain.databinding.DialogListDrawerBinding
 import com.ismartcoding.plain.features.ActionEvent
-import com.ismartcoding.plain.features.audio.AudioHelper
-import com.ismartcoding.plain.features.audio.DAudio
-import com.ismartcoding.plain.features.tag.TagHelper
+import com.ismartcoding.plain.features.audio.AudioMediaStoreHelper
+import com.ismartcoding.plain.data.DAudio
+import com.ismartcoding.plain.features.TagHelper
 import com.ismartcoding.plain.ui.CastDialog
 import com.ismartcoding.plain.ui.extensions.ensureSelect
 import com.ismartcoding.plain.ui.helpers.BottomMenuHelper
@@ -37,14 +37,16 @@ object AudiosBottomMenuHelper {
         when (menuItem.itemId) {
             R.id.share -> {
                 rv.ensureSelect { items ->
-                    ShareHelper.share(context, ArrayList(items.map { AudioHelper.getItemUri(it.data.id) }))
+                    ShareHelper.shareUris(context, ArrayList(items.map { AudioMediaStoreHelper.getItemUri(it.data.id) }))
                 }
             }
+
             R.id.cast -> {
                 rv.ensureSelect { items ->
                     CastDialog(items.map { it.data as DAudio }).show()
                 }
             }
+
             R.id.add_to_playlist -> {
                 rv.ensureSelect { items ->
                     lifecycleScope.launch {
@@ -56,9 +58,10 @@ object AudiosBottomMenuHelper {
                     }
                 }
             }
+
             R.id.delete -> {
                 rv.ensureSelect { items ->
-                    DialogHelper.confirmToDelete(context) {
+                    DialogHelper.confirmToDelete {
                         lifecycleScope.launch {
                             val ids = items.map { it.data.id }.toSet()
                             withIO {
@@ -66,7 +69,7 @@ object AudiosBottomMenuHelper {
                                     ids,
                                     DataType.AUDIO,
                                 )
-                                AudioHelper.deleteRecordsAndFilesByIds(
+                                AudioMediaStoreHelper.deleteRecordsAndFilesByIds(
                                     context,
                                     ids,
                                 )
@@ -78,6 +81,7 @@ object AudiosBottomMenuHelper {
                     }
                 }
             }
+
             else -> {
                 BottomMenuHelper.onMenuItemClick(viewModel, binding, menuItem)
             }

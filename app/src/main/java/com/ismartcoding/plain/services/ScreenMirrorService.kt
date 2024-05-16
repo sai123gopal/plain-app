@@ -11,24 +11,24 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Base64
 import android.view.OrientationEventListener
-import android.view.Surface
+import androidx.core.app.ServiceCompat
 import androidx.core.graphics.scale
 import androidx.lifecycle.LifecycleService
 import com.ismartcoding.lib.channel.sendEvent
+import com.ismartcoding.lib.extensions.compress
 import com.ismartcoding.lib.extensions.isPortrait
 import com.ismartcoding.lib.extensions.parcelable
-import com.ismartcoding.lib.isQPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.R
+import com.ismartcoding.plain.data.DScreenMirrorQuality
 import com.ismartcoding.plain.helpers.NotificationHelper
 import com.ismartcoding.plain.mediaProjectionManager
 import com.ismartcoding.plain.web.websocket.EventType
 import com.ismartcoding.plain.web.websocket.WebSocketEvent
 import java.io.ByteArrayOutputStream
-import java.util.*
+
 
 class ScreenMirrorService : LifecycleService() {
     private var widthPortrait = 720
@@ -44,11 +44,12 @@ class ScreenMirrorService : LifecycleService() {
 
     private var mMediaProjection: MediaProjection? = null
     private var mImageReaderPortrait: ImageReader? = null
-    private var mImageReaderLanscape: ImageReader? = null
+    private var mImageReaderLandscape: ImageReader? = null
     private var mImageReaderHandlerThread: HandlerThread? = null
     private var mVirtualDisplay: VirtualDisplay? = null
     private var handler: Handler? = null
 
+    @SuppressLint("InlinedApi")
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -66,14 +67,7 @@ class ScreenMirrorService : LifecycleService() {
         orientationEventListener =
             object : OrientationEventListener(this) {
                 override fun onOrientationChanged(orientation: Int) {
-                    val r =
-                        when (orientation) {
-                            in 45..134 -> Surface.ROTATION_270
-                            in 135..224 -> Surface.ROTATION_180
-                            in 225..314 -> Surface.ROTATION_90
-                            else -> Surface.ROTATION_0
-                        }
-                    val newIsPortrait = r == Surface.ROTATION_0 || r == Surface.ROTATION_180
+                    val newIsPortrait = isPortrait()
                     if (isPortrait != newIsPortrait) {
                         isPortrait = newIsPortrait
                         resize()
@@ -86,11 +80,8 @@ class ScreenMirrorService : LifecycleService() {
                 "${BuildConfig.APPLICATION_ID}.action.stop_screen_mirror",
                 getString(R.string.screen_mirror_service_is_running),
             )
-        if (isQPlus()) {
-            startForeground(3, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-        } else {
-            startForeground(3, notification)
-        }
+        val id = NotificationHelper.generateId()
+        ServiceCompat.startForeground(this, id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
     }
 
     @SuppressLint("WrongConstant")
@@ -122,41 +113,44 @@ class ScreenMirrorService : LifecycleService() {
         orientationEventListener.disable()
     }
 
-    private fun bitmapToBase64Image(
+    private fun bitmapToByteArray(
         bitmap: Bitmap,
         width: Int,
         height: Int,
-    ): String {
-        val maxSize = 100 * 1024 // 100KB
-        val maxWidth = 500
-        val needCompress =
-            if (isPortrait) {
-                width > maxWidth
-            } else {
-                height > maxWidth
-            }
+    ): ByteArray {
+        val maxWidth = qualityData.resolution
+        var newWidth = width
+        var newHeight = height
+        val longSide = maxOf(width, height)
+        val shortSide = minOf(width, height)
+        val scale = shortSide.toFloat() / longSide.toFloat()
 
-        var newBitmap = bitmap
-        if (needCompress) {
-            val scaleRatio = if (isPortrait) maxWidth.toFloat() / width.toFloat() else maxWidth.toFloat() / height.toFloat()
-            val newWidth = (width * scaleRatio).toInt()
-            val newHeight = (height * scaleRatio).toInt()
-            newBitmap = bitmap.scale(newWidth, newHeight, true)
+        if (shortSide < maxWidth || longSide < maxWidth) {
+        } else {
+            if (width < height) {
+                newWidth = maxWidth
+                newHeight = (maxWidth / scale).toInt()
+            } else {
+                newWidth = (maxWidth / scale).toInt()
+                newHeight = maxWidth
+            }
         }
+
+        val newBitmap = if (newWidth >= width && newHeight >= height) bitmap else bitmap.scale(newWidth, newHeight, true)
 
         val outputStream = ByteArrayOutputStream()
-        var quality = 40
-        newBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
+        val quality = qualityData.quality
+        newBitmap.compress(quality, outputStream)
+        val size = outputStream.size()
+//        while (size > qualityData.maxSize && quality > 20) {
+//            outputStream.reset()
+//            quality -= 10
+//            newBitmap.compress(quality, outputStream)
+//            size = outputStream.size()
+//        }
+        LogCat.d("quality: $quality, size: $size, $newWidth x $newHeight")
 
-        while (outputStream.toByteArray().size > maxSize && quality > 0) {
-            outputStream.reset()
-            quality -= 5
-            newBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-        }
-
-        val byteArray = outputStream.toByteArray()
-        val base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP)
-        return "data:image/jpeg;base64,$base64String"
+        return outputStream.toByteArray()
     }
 
     private fun resize() {
@@ -173,7 +167,7 @@ class ScreenMirrorService : LifecycleService() {
                 heightLandscape
             }
 
-        mVirtualDisplay?.surface = if (isPortrait) mImageReaderPortrait!!.surface else mImageReaderLanscape!!.surface
+        mVirtualDisplay?.surface = if (isPortrait) mImageReaderPortrait!!.surface else mImageReaderLandscape!!.surface
         mVirtualDisplay?.resize(width, height, mScreenDensity)
     }
 
@@ -192,7 +186,7 @@ class ScreenMirrorService : LifecycleService() {
                 heightLandscape
             }
         mImageReaderPortrait = ImageReader.newInstance(widthPortrait, heightPortrait, PixelFormat.RGBA_8888, 2)
-        mImageReaderLanscape = ImageReader.newInstance(widthLandscape, heightLandscape, PixelFormat.RGBA_8888, 2)
+        mImageReaderLandscape = ImageReader.newInstance(widthLandscape, heightLandscape, PixelFormat.RGBA_8888, 2)
         mMediaProjection?.registerCallback(
             object : MediaProjection.Callback() {
                 override fun onStop() {
@@ -204,7 +198,7 @@ class ScreenMirrorService : LifecycleService() {
             mMediaProjection?.createVirtualDisplay(
                 "ScreenMirroringService", width, height, mScreenDensity,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-                if (isPortrait) mImageReaderPortrait!!.surface else mImageReaderLanscape!!.surface,
+                if (isPortrait) mImageReaderPortrait!!.surface else mImageReaderLandscape!!.surface,
                 object : VirtualDisplay.Callback() {
                 },
                 null,
@@ -224,7 +218,7 @@ class ScreenMirrorService : LifecycleService() {
                     mBitmap?.copyPixelsFromBuffer(buffer)
                     if (mBitmap != null && instance != null && isPortrait) {
                         sendEvent(
-                            WebSocketEvent(EventType.SCREEN_MIRRORING, bitmapToBase64Image(mBitmap!!, newWidth, heightPortrait), false),
+                            WebSocketEvent(EventType.SCREEN_MIRRORING, bitmapToByteArray(mBitmap!!, newWidth, heightPortrait)),
                         )
                     }
                     image.close()
@@ -234,7 +228,7 @@ class ScreenMirrorService : LifecycleService() {
             }
         }, handler!!)
 
-        mImageReaderLanscape?.setOnImageAvailableListener({
+        mImageReaderLandscape?.setOnImageAvailableListener({
             try {
                 val image = it.acquireLatestImage()
                 if (image != null) {
@@ -248,7 +242,7 @@ class ScreenMirrorService : LifecycleService() {
                     mBitmap?.copyPixelsFromBuffer(buffer)
                     if (mBitmap != null && instance != null && !isPortrait) {
                         sendEvent(
-                            WebSocketEvent(EventType.SCREEN_MIRRORING, bitmapToBase64Image(mBitmap!!, newWidth, heightLandscape), false),
+                            WebSocketEvent(EventType.SCREEN_MIRRORING, bitmapToByteArray(mBitmap!!, newWidth, heightLandscape)),
                         )
                     }
                     image.close()
@@ -265,9 +259,9 @@ class ScreenMirrorService : LifecycleService() {
             mVirtualDisplay = null
         }
         mImageReaderPortrait?.setOnImageAvailableListener(null, null)
-        mImageReaderLanscape?.setOnImageAvailableListener(null, null)
+        mImageReaderLandscape?.setOnImageAvailableListener(null, null)
         mImageReaderPortrait = null
-        mImageReaderLanscape = null
+        mImageReaderLandscape = null
         if (mMediaProjection != null) {
             mMediaProjection?.stop()
             mMediaProjection = null
@@ -279,19 +273,18 @@ class ScreenMirrorService : LifecycleService() {
         stopSelf()
     }
 
-    fun getLatestImageBase64(): String {
+    fun getLatestImage(): ByteArray? {
         if (mBitmap == null) {
-            return ""
+            return null
         }
 
         val outputStream = ByteArrayOutputStream()
-        mBitmap!!.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-        val byteArray = outputStream.toByteArray()
-        val base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP)
-        return "data:image/jpeg;base64,$base64String"
+        mBitmap!!.compress(qualityData.quality, outputStream)
+        return outputStream.toByteArray()
     }
 
     companion object {
         var instance: ScreenMirrorService? = null
+        var qualityData: DScreenMirrorQuality = DScreenMirrorQuality()
     }
 }

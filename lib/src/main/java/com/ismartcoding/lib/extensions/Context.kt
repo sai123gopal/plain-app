@@ -21,8 +21,10 @@ import androidx.annotation.DimenRes
 import androidx.annotation.DrawableRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.ismartcoding.lib.isQPlus
 import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.lib.isTPlus
+import pl.droidsonroids.gif.BuildConfig
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -37,6 +39,8 @@ fun Context.dp(
 fun Context.getTextWidth(text: String): Float = TextView(this).paint.measureText(text)
 
 fun Context.dp2px(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+fun Context.px2dp(px: Float): Int = (px / resources.displayMetrics.density).toInt()
 
 fun dp2px(dp: Int): Int {
     val density: Float = Resources.getSystem().displayMetrics.density
@@ -215,12 +219,25 @@ fun Context.getMimeTypeFromUri(uri: Uri): String {
 fun Context.getMediaContentUri(path: String): Uri? {
     val uri =
         when {
-            path.isImageFast() -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            path.isVideoFast() -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            else -> MediaStore.Files.getContentUri("external")
+            path.isImageFast() -> if (isQPlus()) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            path.isVideoFast() -> if (isQPlus()) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            path.isAudioFast() -> if (isQPlus()) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            else -> MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         }
 
     return getMediaContent(path, uri)
+}
+
+fun Context.getMediaContentUri(path: String, id: String): Uri? {
+    val basUri =
+        when {
+            path.isImageFast() -> if (isQPlus()) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            path.isVideoFast() -> if (isQPlus()) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            path.isAudioFast() -> if (isQPlus()) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            else -> MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
+
+    return Uri.withAppendedPath(basUri, id)
 }
 
 fun Context.getMediaContent(
@@ -278,10 +295,6 @@ fun Context.hasPermissionInManifest(vararg permissions: String): Boolean {
             packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
         }
     return packageInfo.requestedPermissions?.any { permissions.contains(it) } ?: false
-}
-
-fun Context.allowSensitivePermissions(): Boolean {
-    return hasPermissionInManifest(Manifest.permission.READ_SMS)
 }
 
 fun Context.isPortrait(): Boolean {

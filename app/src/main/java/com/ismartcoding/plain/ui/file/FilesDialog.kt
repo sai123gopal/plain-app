@@ -25,22 +25,23 @@ import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.extensions.px
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.FormatHelper
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.Constants
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.preference.FileSortByPreference
-import com.ismartcoding.plain.data.preference.ShowHiddenFilesPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.preference.FileSortByPreference
+import com.ismartcoding.plain.preference.ShowHiddenFilesPreference
 import com.ismartcoding.plain.databinding.DialogFilesBinding
 import com.ismartcoding.plain.extensions.formatDateTime
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
 import com.ismartcoding.plain.features.Permissions
-import com.ismartcoding.plain.features.audio.DPlaylistAudio
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.audio.AudioPlayer
+import com.ismartcoding.plain.data.DPlaylistAudio
+import com.ismartcoding.plain.enums.AppFeatureType
 import com.ismartcoding.plain.features.file.FileSystemHelper
 import com.ismartcoding.plain.features.locale.LocaleHelper
-import com.ismartcoding.plain.services.AudioPlayerService
 import com.ismartcoding.plain.ui.BaseDialog
 import com.ismartcoding.plain.ui.MainActivity
 import com.ismartcoding.plain.ui.PdfViewerDialog
@@ -73,7 +74,7 @@ import java.io.File
 import kotlin.io.path.Path
 import kotlin.io.path.moveTo
 
-class FilesDialog : BaseDialog<DialogFilesBinding>() {
+class FilesDialog(val fileType: FilesType = FilesType.INTERNAL_STORAGE) : BaseDialog<DialogFilesBinding>() {
     val viewModel: FilesViewModel by viewModels()
 
     override fun onViewCreated(
@@ -81,7 +82,13 @@ class FilesDialog : BaseDialog<DialogFilesBinding>() {
         savedInstanceState: Bundle?,
     ) {
         super.onViewCreated(view, savedInstanceState)
-
+        if (fileType == FilesType.APP) {
+            viewModel.root = FileSystemHelper.getExternalFilesDirPath(requireContext())
+            viewModel.breadcrumbs.clear()
+            viewModel.breadcrumbs.add(BreadcrumbItem(LocaleHelper.getString(R.string.file_transfer_assistant), viewModel.root))
+            viewModel.path = viewModel.root
+            viewModel.type = FilesType.APP
+        }
         updatePasteAction()
 
         binding.bottomAction.run {
@@ -150,7 +157,7 @@ class FilesDialog : BaseDialog<DialogFilesBinding>() {
                     try {
                         AudioPlayerDialog().show()
                         Permissions.checkNotification(requireContext(), R.string.audio_notification_prompt) {
-                            AudioPlayerService.play(requireContext(), DPlaylistAudio.fromPath(context, m.data.path))
+                            AudioPlayer.play(requireContext(), DPlaylistAudio.fromPath(context, m.data.path))
                         }
                     } catch (ex: Exception) {
                     }
@@ -262,7 +269,7 @@ class FilesDialog : BaseDialog<DialogFilesBinding>() {
     }
 
     private fun initEvents() {
-        receiveEvent<PermissionResultEvent> {
+        receiveEvent<PermissionsResultEvent> {
             checkPermission()
         }
         receiveEvent<DrawerMenuItemClickedEvent> { event ->
@@ -310,7 +317,7 @@ class FilesDialog : BaseDialog<DialogFilesBinding>() {
 
     private fun checkPermission() {
         binding.breadcrumb.isVisible = Permission.WRITE_EXTERNAL_STORAGE.can(requireContext())
-        binding.list.checkPermission(requireContext(), Permission.WRITE_EXTERNAL_STORAGE)
+        binding.list.checkPermission(requireContext(), AppFeatureType.FILES)
     }
 
     private fun updateList() {

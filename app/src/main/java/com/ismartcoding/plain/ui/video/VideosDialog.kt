@@ -14,21 +14,22 @@ import com.ismartcoding.lib.extensions.pathToUri
 import com.ismartcoding.lib.helpers.BitmapHelper
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.FormatHelper
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.lib.rv.GridSpacingItemDecoration
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.data.DMediaBucket
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.DataType
-import com.ismartcoding.plain.data.enums.MediaType
-import com.ismartcoding.plain.data.preference.VideoSortByPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.DataType
+import com.ismartcoding.plain.enums.MediaType
+import com.ismartcoding.plain.preference.VideoSortByPreference
 import com.ismartcoding.plain.databinding.ItemMediaBucketGridBinding
 import com.ismartcoding.plain.databinding.ItemVideoGridBinding
+import com.ismartcoding.plain.enums.AppFeatureType
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
-import com.ismartcoding.plain.features.video.VideoHelper
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.video.VideoMediaStoreHelper
 import com.ismartcoding.plain.ui.BaseListDrawerDialog
 import com.ismartcoding.plain.ui.CastDialog
 import com.ismartcoding.plain.ui.extensions.checkPermission
@@ -65,7 +66,7 @@ class VideosDialog(private val bucket: DMediaBucket? = null) : BaseListDrawerDia
     }
 
     override fun initEvents() {
-        receiveEvent<PermissionResultEvent> {
+        receiveEvent<PermissionsResultEvent> {
             checkPermission()
         }
         receiveEvent<ActionEvent> { event ->
@@ -76,7 +77,7 @@ class VideosDialog(private val bucket: DMediaBucket? = null) : BaseListDrawerDia
     }
 
     private fun checkPermission() {
-        binding.list.checkPermission(requireContext(), Permission.WRITE_EXTERNAL_STORAGE)
+        binding.list.checkPermission(requireContext(), AppFeatureType.FILES)
     }
 
     override fun initList() {
@@ -206,8 +207,8 @@ class VideosDialog(private val bucket: DMediaBucket? = null) : BaseListDrawerDia
         val query = viewModel.getQuery()
         val context = requireContext()
         val items =
-            withIO { VideoHelper.search(context, query, viewModel.limit, viewModel.offset, VideoSortByPreference.getValueAsync(context)) }
-        viewModel.total = withIO { VideoHelper.count(context, query) }
+            withIO { VideoMediaStoreHelper.search(context, query, viewModel.limit, viewModel.offset, VideoSortByPreference.getValueAsync(context)) }
+        viewModel.total = withIO { VideoMediaStoreHelper.count(context, query) }
 
         val bindingAdapter = binding.list.rv.bindingAdapter
         val toggleMode = bindingAdapter.toggleMode
@@ -228,7 +229,7 @@ class VideosDialog(private val bucket: DMediaBucket? = null) : BaseListDrawerDia
     }
 
     private suspend fun updateFolders() {
-        val items = withIO { VideoHelper.getBuckets(requireContext()) }
+        val items = withIO { VideoMediaStoreHelper.getBuckets(requireContext()) }
         viewModel.total = items.size
         binding.list.page.addData(items, hasMore = { false })
     }

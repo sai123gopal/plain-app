@@ -47,16 +47,16 @@ class WireGuardsDialog : BaseDialog<DialogWireguardsBinding>() {
             onBind {
                 val b = getBinding<ViewListItemBinding>()
                 val m = getModel<WireGuard>()
-                b.bindWireGuard(requireContext(), lifecycleScope, m)
+                b.bindWireGuard(lifecycleScope, m)
                 b.enableSwipeMenu(true)
                 b.setRightSwipeButton(getString(R.string.delete)) {
-                    DialogHelper.confirmToAction(requireContext(), R.string.confirm_to_delete) {
+                    DialogHelper.confirmToAction(R.string.confirm_to_delete) {
                         lifecycleScope.launch {
                             DialogHelper.showLoading()
                             val r = withIO { BoxApi.mixMutateAsync(DeleteWireGuardMutation(m.id)) }
                             DialogHelper.hideLoading()
                             if (!r.isSuccess()) {
-                                DialogHelper.showErrorDialog(requireContext(), r.getErrorMessage())
+                                DialogHelper.showErrorDialog(r.getErrorMessage())
                                 return@launch
                             }
 

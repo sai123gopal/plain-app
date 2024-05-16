@@ -13,4 +13,7 @@ object Constants {
     const val SUPPORT_EMAIL = "ismartcoding@gmail.com"
     const val AUTHORITY = "${BuildConfig.APPLICATION_ID}.provider"
     val EMAIL_PATTERN: Pattern = Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,4}")
+    const val LATEST_RELEASE_URL = "https://api.github.com/repos/ismartcoding/plain-app/releases/latest"
+    const val ONE_DAY = 24 * 60 * 60L
+    const val ONE_DAY_MS = ONE_DAY * 1000L
 }

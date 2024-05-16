@@ -7,23 +7,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ismartcoding.plain.ui.theme.tipsText
 
 @Composable
 fun Tips(
-    modifier: Modifier = Modifier,
+    text: String,
+    modifier: Modifier = Modifier.padding(start = 32.dp, end = 24.dp, top = 8.dp),
+) {
+    SelectionContainer {
+        Text(
+            modifier = modifier
+                .fillMaxWidth(),
+            text = text,
+            style = MaterialTheme.typography.tipsText(),
+        )
+    }
+}
+
+@Composable
+fun PDialogTips(
     text: String,
 ) {
     SelectionContainer {
         Text(
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth(),
             text = text,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Light),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.tipsText(),
         )
     }
 }

@@ -8,22 +8,29 @@ import com.ismartcoding.lib.brv.BindingAdapter
 import com.ismartcoding.lib.brv.annotaion.ItemOrientation
 import com.ismartcoding.lib.brv.item.ItemDrag
 import com.ismartcoding.lib.brv.listener.DefaultItemTouchCallback
-import com.ismartcoding.lib.brv.utils.*
+import com.ismartcoding.lib.brv.utils.getModelList
+import com.ismartcoding.lib.brv.utils.linear
+import com.ismartcoding.lib.brv.utils.removeModel
+import com.ismartcoding.lib.brv.utils.setup
 import com.ismartcoding.lib.channel.receiveEvent
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.FormatHelper
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.preference.AudioPlayingPreference
-import com.ismartcoding.plain.data.preference.AudioPlaylistPreference
+import com.ismartcoding.plain.preference.AudioPlayingPreference
+import com.ismartcoding.plain.preference.AudioPlaylistPreference
 import com.ismartcoding.plain.databinding.DialogPlaylistBinding
-import com.ismartcoding.plain.features.*
-import com.ismartcoding.plain.features.audio.*
+import com.ismartcoding.plain.features.AudioActionEvent
+import com.ismartcoding.plain.features.ClearAudioPlaylistEvent
+import com.ismartcoding.plain.features.Permissions
+import com.ismartcoding.plain.enums.AudioAction
+import com.ismartcoding.plain.features.audio.AudioPlayer
+import com.ismartcoding.plain.data.DPlaylistAudio
 import com.ismartcoding.plain.features.locale.LocaleHelper
-import com.ismartcoding.plain.services.AudioPlayerService
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.ui.BaseBottomSheetDialog
-import com.ismartcoding.plain.ui.extensions.*
-import kotlinx.coroutines.Dispatchers
+import com.ismartcoding.plain.ui.extensions.initMenu
+import com.ismartcoding.plain.ui.extensions.onMenuItemClick
+import com.ismartcoding.plain.ui.extensions.onSearch
 import kotlinx.coroutines.launch
 
 class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
@@ -51,11 +58,11 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
                         lifecycleScope.launch {
                             val context = requireContext()
                             withIO {
-                                AudioPlayer.instance.pause()
-                                AudioPlayingPreference.putAsync(context, null)
+                                AudioPlayingPreference.putAsync(context, "")
                                 AudioPlaylistPreference.putAsync(context, arrayListOf())
-                                sendEvent(ClearAudioPlaylistEvent())
                             }
+                            AudioPlayer.clear()
+                            sendEvent(ClearAudioPlaylistEvent())
                         }
                     }
                 }
@@ -74,7 +81,7 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
             R.id.container.onClick {
                 val m = getModel<AudioModel>()
                 Permissions.checkNotification(requireContext(), R.string.audio_notification_prompt) {
-                    AudioPlayerService.play(requireContext(), m.audio)
+                    AudioPlayer.justPlay(requireContext(), m.audio)
                 }
             }
 
@@ -85,8 +92,9 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
                             source: BindingAdapter.BindingViewHolder,
                             target: BindingAdapter.BindingViewHolder,
                         ) {
-                            lifecycleScope.launch(Dispatchers.IO) {
-                                AudioPlaylistPreference.putAsync(requireContext(), getModelList<AudioModel>().map { it.audio })
+                            lifecycleScope.launch {
+                                val audios = getModelList<AudioModel>().map { it.audio }
+                                withIO { AudioPlaylistPreference.putAsync(requireContext(), audios) }
                             }
                         }
                     },
@@ -104,7 +112,7 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
 
     private fun initEvents() {
         receiveEvent<AudioActionEvent> { event ->
-            if (setOf(AudioAction.PLAY, AudioAction.PAUSE).contains(event.action)) {
+            if (event.action == AudioAction.PLAYBACK_STATE_CHANGED) {
                 updatePlayingState()
             }
         }
@@ -122,8 +130,8 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
     private fun updatePlayingState() {
         val context = requireContext()
         lifecycleScope.launch {
-            val currentPath = withIO { AudioPlayingPreference.getValueAsync(context)?.path }
-            val isAudioPlaying = AudioPlayer.instance.isPlaying()
+            val currentPath = withIO { AudioPlayingPreference.getValueAsync(context) }
+            val isAudioPlaying = AudioPlayer.isPlaying()
             binding.list.rv.getModelList<AudioModel>().forEach {
                 val old = it.isPlaying
                 it.isPlaying = isAudioPlaying && currentPath == it.audio.path
@@ -142,12 +150,12 @@ class AudioPlaylistDialog : BaseBottomSheetDialog<DialogPlaylistBinding>() {
                     AudioPlaylistPreference.getValueAsync(context)
                         .filter {
                             searchQ.isEmpty() ||
-                                it.title.contains(searchQ, true) ||
-                                it.artist.contains(searchQ, true)
+                                    it.title.contains(searchQ, true) ||
+                                    it.artist.contains(searchQ, true)
                         }
                 }
-            val currentPath = withIO { AudioPlayingPreference.getValueAsync(context)?.path }
-            val isAudioPlaying = AudioPlayer.instance.isPlaying()
+            val currentPath = withIO { AudioPlayingPreference.getValueAsync(context) }
+            val isAudioPlaying = AudioPlayer.isPlaying()
             binding.list.page.addData(
                 audios
                     .map { audio ->

@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.graphics.ImageFormat
-import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -27,6 +26,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -50,14 +50,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.NavHostController
-import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
-import com.google.zxing.DecodeHintType
 import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
 import com.google.zxing.PlanarYUVLuminanceSource
-import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.Result
 import com.google.zxing.common.HybridBinarizer
-import com.google.zxing.qrcode.QRCodeReader
 import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
@@ -66,19 +64,23 @@ import com.ismartcoding.lib.helpers.QrCodeBitmapHelper
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.clipboardManager
-import com.ismartcoding.plain.data.enums.PickFileTag
-import com.ismartcoding.plain.data.enums.PickFileType
-import com.ismartcoding.plain.data.preference.ScanHistoryPreference
+import com.ismartcoding.plain.enums.PickFileTag
+import com.ismartcoding.plain.enums.PickFileType
+import com.ismartcoding.plain.preference.ScanHistoryPreference
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
+import com.ismartcoding.plain.features.PermissionsResultEvent
 import com.ismartcoding.plain.features.PickFileEvent
 import com.ismartcoding.plain.features.PickFileResultEvent
-import com.ismartcoding.plain.features.RequestPermissionEvent
+import com.ismartcoding.plain.features.RequestPermissionsEvent
 import com.ismartcoding.plain.features.locale.LocaleHelper
+import com.ismartcoding.plain.helpers.QrCodeScanHelper
+import com.ismartcoding.plain.ui.base.BottomSpace
+import com.ismartcoding.plain.ui.base.PBottomSheetTopAppBar
 import com.ismartcoding.plain.ui.base.PIconButton
 import com.ismartcoding.plain.ui.base.PModalBottomSheet
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.TextCard
+import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
 import com.ismartcoding.plain.ui.extensions.navigate
 import com.ismartcoding.plain.ui.helpers.DialogHelper
@@ -97,7 +99,6 @@ fun ScanPage(navController: NavHostController) {
     val view = LocalView.current
     val window = (view.context as Activity).window
     val insetsController = WindowCompat.getInsetsController(window, view)
-    insetsController.hide(WindowInsetsCompat.Type.systemBars())
 
     var cameraProvider: ProcessCameraProvider? = null
     val events by remember { mutableStateOf<MutableList<Job>>(arrayListOf()) }
@@ -109,8 +110,9 @@ fun ScanPage(navController: NavHostController) {
     var scanResult by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
+        insetsController.hide(WindowInsetsCompat.Type.systemBars())
         events.add(
-            receiveEventHandler<PermissionResultEvent> {
+            receiveEventHandler<PermissionsResultEvent> {
                 hasCamPermission = Permission.CAMERA.can(context)
                 if (!hasCamPermission) {
                     DialogHelper.showMessage(LocaleHelper.getString(R.string.scan_needs_camera_warning))
@@ -126,19 +128,25 @@ fun ScanPage(navController: NavHostController) {
                     try {
                         cameraDetecting = false
                         DialogHelper.showLoading()
-                        val bitmap = QrCodeBitmapHelper.getBitmapFromContentUri(context, event.uris.first())
-                        val width = bitmap.width
-                        val height = bitmap.height
-                        val pixels = IntArray(width * height)
-                        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-                        val source = RGBLuminanceSource(width, height, pixels)
-                        val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
-                        val reader = QRCodeReader()
-                        val result = reader.decode(binaryBitmap)
+                        val originalImage = QrCodeBitmapHelper.getBitmapFromUri(context, event.uris.first())
+                        val intArray = IntArray(originalImage.width * originalImage.height)
+                        originalImage.getPixels(
+                            intArray,
+                            0,
+                            originalImage.width,
+                            0,
+                            0,
+                            originalImage.width,
+                            originalImage.height
+                        )
+
+                        val result = QrCodeScanHelper.tryDecode(originalImage)
                         DialogHelper.hideLoading()
-                        scanResult = result.text
-                        addScanResult(context, scope, scanResult)
-                        showScanResultSheet = true
+                        if (result != null) {
+                            scanResult = result.text
+                            addScanResult(context, scope, scanResult)
+                            showScanResultSheet = true
+                        }
                     } catch (ex: Exception) {
                         DialogHelper.hideLoading()
                         cameraDetecting = true
@@ -150,13 +158,14 @@ fun ScanPage(navController: NavHostController) {
         )
     }
     if (!hasCamPermission) {
-        sendEvent(RequestPermissionEvent(Permission.CAMERA))
+        sendEvent(RequestPermissionsEvent(Permission.CAMERA))
     }
 
     DisposableEffect(Unit) {
         onDispose {
             insetsController.show(WindowInsetsCompat.Type.systemBars())
             events.forEach { it.cancel() }
+            events.clear()
             cameraProvider?.unbindAll()
         }
     }
@@ -188,12 +197,6 @@ fun ScanPage(navController: NavHostController) {
                             preview.setSurfaceProvider(previewView.surfaceProvider)
                             val imageAnalysis =
                                 ImageAnalysis.Builder()
-                                    .setTargetResolution(
-                                        Size(
-                                            previewView.width,
-                                            previewView.height,
-                                        ),
-                                    )
                                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                     .build()
                             imageAnalysis.setAnalyzer(
@@ -206,48 +209,34 @@ fun ScanPage(navController: NavHostController) {
                                             ImageFormat.YUV_444_888,
                                         )
 
-                                    override fun analyze(image: ImageProxy) {
+                                    override fun analyze(imageProxy: ImageProxy) {
                                         if (cameraDetecting) {
-                                            if (image.format in supportedImageFormats) {
-                                                val bytes = image.planes.first().buffer.toByteArray()
-
-                                                val source =
-                                                    PlanarYUVLuminanceSource(
-                                                        bytes,
-                                                        image.width,
-                                                        image.height,
-                                                        0,
-                                                        0,
-                                                        image.width,
-                                                        image.height,
-                                                        false,
-                                                    )
-                                                val binaryBmp = BinaryBitmap(HybridBinarizer(source))
+                                            if (imageProxy.format in supportedImageFormats && imageProxy.planes.size == 3) {
+                                                val data = imageProxy.planes[0].buffer.toByteArray()
                                                 try {
                                                     cameraDetecting = false
-                                                    val result =
-                                                        MultiFormatReader().apply {
-                                                            setHints(
-                                                                mapOf(
-                                                                    DecodeHintType.POSSIBLE_FORMATS to
-                                                                        arrayListOf(
-                                                                            BarcodeFormat.QR_CODE,
-                                                                        ),
-                                                                ),
-                                                            )
-                                                        }.decode(binaryBmp)
-                                                    scanResult = result.text
-                                                    addScanResult(context, scope, scanResult)
-                                                    showScanResultSheet = true
+                                                    val reader = QrCodeScanHelper.createReader()
+                                                    try {
+                                                        val result = decode(reader, imageProxy, data)
+                                                        scanResult = result.text
+                                                        addScanResult(context, scope, scanResult)
+                                                        showScanResultSheet = true
+                                                    } catch (e: NotFoundException) {
+                                                        for (i in data.indices) data[i] = (255 - (data[i].toInt() and 0xff)).toByte()
+                                                        val result = decode(reader, imageProxy, data)
+                                                        scanResult = result.text
+                                                        addScanResult(context, scope, scanResult)
+                                                        showScanResultSheet = true
+                                                    }
                                                 } catch (e: java.lang.Exception) {
                                                     cameraDetecting = true
                                                     e.printStackTrace()
                                                 } finally {
-                                                    image.close()
+                                                    imageProxy.close()
                                                 }
                                             }
                                         } else {
-                                            image.close()
+                                            imageProxy.close()
                                         }
                                     }
 
@@ -282,7 +271,7 @@ fun ScanPage(navController: NavHostController) {
                     modifier = Modifier.padding(top = 24.dp),
                     navigationIcon = {
                         PIconButton(
-                            imageVector = Icons.Rounded.Cancel,
+                            icon = Icons.Rounded.Cancel,
                             contentDescription = stringResource(R.string.back),
                             tint = Color.White,
                         ) {
@@ -290,21 +279,21 @@ fun ScanPage(navController: NavHostController) {
                         }
                     },
                     colors =
-                        TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                        ),
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                    ),
                 )
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = 24.dp, end = 24.dp, bottom = 64.dp)
-                            .align(Alignment.BottomCenter),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, bottom = 64.dp)
+                        .align(Alignment.BottomCenter),
                 ) {
                     PIconButton(
                         modifier = Modifier.size(40.dp),
                         containerModifier = Modifier.size(64.dp),
-                        imageVector = Icons.Rounded.History,
+                        icon = Icons.Rounded.History,
                         contentDescription = stringResource(R.string.scan_history),
                         tint = Color.White,
                     ) {
@@ -314,7 +303,7 @@ fun ScanPage(navController: NavHostController) {
                     PIconButton(
                         modifier = Modifier.size(40.dp),
                         containerModifier = Modifier.size(size = 64.dp),
-                        imageVector = Icons.Rounded.Image,
+                        icon = Icons.Rounded.Image,
                         contentDescription = stringResource(R.string.images),
                         tint = Color.White,
                     ) {
@@ -324,6 +313,20 @@ fun ScanPage(navController: NavHostController) {
             }
         },
     )
+}
+
+private fun decode(reader: MultiFormatReader, imageProxy: ImageProxy, data: ByteArray): Result {
+    val source = PlanarYUVLuminanceSource(
+        data,
+        imageProxy.planes[0].rowStride,
+        imageProxy.height,
+        0,
+        0,
+        imageProxy.width,
+        imageProxy.height,
+        false
+    )
+    return reader.decodeWithState(BinaryBitmap(HybridBinarizer(source)))
 }
 
 private fun addScanResult(
@@ -347,27 +350,23 @@ fun ScanResultBottomSheet(
     onDismiss: () -> Unit,
 ) {
     PModalBottomSheet(
-        modifier =
-            Modifier
-                .padding(top = 16.dp)
-                .defaultMinSize(minHeight = 240.dp),
-        topBarTitle = stringResource(id = R.string.scan_result),
-        actions = {
+        onDismissRequest = {
+            onDismiss()
+        },
+    ) {
+        PBottomSheetTopAppBar(title = stringResource(id = R.string.scan_result)) {
             PIconButton(
-                imageVector = Icons.Outlined.ContentCopy,
+                icon = Icons.Outlined.ContentCopy,
                 contentDescription = stringResource(android.R.string.copy),
                 tint = MaterialTheme.colorScheme.onSurface,
             ) {
                 val clip = ClipData.newPlainText(LocaleHelper.getString(R.string.scan_result), value)
                 clipboardManager.setPrimaryClip(clip)
-                DialogHelper.showMessage(R.string.copied)
+                DialogHelper.showMessage(value)
             }
-        },
-        onDismissRequest = {
-            onDismiss()
-        },
-    ) {
+        }
+        TopSpace()
         TextCard(context, text = value)
-        VerticalSpace(dp = 56.dp)
+        BottomSpace()
     }
 }

@@ -8,12 +8,12 @@ import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.preference.AudioPlayingPreference
+import com.ismartcoding.plain.preference.AudioPlayingPreference
 import com.ismartcoding.plain.databinding.ViewBottomAudioPlayerBinding
 import com.ismartcoding.plain.features.AudioActionEvent
-import com.ismartcoding.plain.features.audio.AudioAction
+import com.ismartcoding.plain.enums.AudioAction
 import com.ismartcoding.plain.features.audio.AudioPlayer
-import com.ismartcoding.plain.services.AudioPlayerService
+import com.ismartcoding.plain.data.DPlaylistAudio
 import com.ismartcoding.plain.ui.extensions.setSafeClick
 import com.ismartcoding.plain.ui.views.CustomViewBase
 
@@ -26,7 +26,7 @@ class BottomAudioPlayerView(context: Context, attrs: AttributeSet?) : CustomView
         seekBarUpdateRunnable =
             Runnable {
                 binding.audioProgress.run {
-                    progress++
+                    progress = (AudioPlayer.playerProgress / 1000).toInt()
                     postDelayed(seekBarUpdateRunnable, seekBarUpdateDelayMillis)
                 }
             }
@@ -36,7 +36,7 @@ class BottomAudioPlayerView(context: Context, attrs: AttributeSet?) : CustomView
         events.add(
             receiveEventHandler<AudioActionEvent> { event ->
                 when (event.action) {
-                    AudioAction.PLAY, AudioAction.PAUSE, AudioAction.SEEK -> {
+                    AudioAction.PLAYBACK_STATE_CHANGED, AudioAction.MEDIA_ITEM_TRANSITION -> {
                         updateUI()
                     }
 
@@ -51,21 +51,22 @@ class BottomAudioPlayerView(context: Context, attrs: AttributeSet?) : CustomView
     fun updateUI() {
         coMain {
             binding.audioProgress.removeCallbacks(seekBarUpdateRunnable)
-            val audio = withIO { AudioPlayingPreference.getValueAsync(context) }
-            if (audio == null) {
+            val path = withIO { AudioPlayingPreference.getValueAsync(context) }
+            if (path.isEmpty()) {
                 this@BottomAudioPlayerView.visibility = View.GONE
                 return@coMain
             } else {
                 this@BottomAudioPlayerView.visibility = View.VISIBLE
             }
 
+            val audio = DPlaylistAudio.fromPath(context, path)
             binding.audioProgress.apply {
-                progress = AudioPlayer.instance.getPlayerProgress()
+                progress = (AudioPlayer.playerProgress / 1000).toInt()
                 max = audio.duration.toInt()
             }
             binding.audioTitle.text = audio.title
             binding.audioArtist.text = audio.artist
-            val isPlaying = AudioPlayer.instance.isPlaying()
+            val isPlaying = AudioPlayer.isPlaying()
             if (isPlaying) {
                 binding.audioProgress.postDelayed(seekBarUpdateRunnable, seekBarUpdateDelayMillis)
             }
@@ -75,10 +76,10 @@ class BottomAudioPlayerView(context: Context, attrs: AttributeSet?) : CustomView
 
     private fun setListen() {
         binding.playPauseButton.setSafeClick {
-            if (AudioPlayer.instance.isPlaying()) {
-                AudioPlayerService.pause(context)
+            if (AudioPlayer.isPlaying()) {
+                AudioPlayer.pause()
             } else {
-                AudioPlayerService.play(context)
+                AudioPlayer.play()
             }
         }
 

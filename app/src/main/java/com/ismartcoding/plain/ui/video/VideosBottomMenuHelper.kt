@@ -6,17 +6,17 @@ import androidx.lifecycle.LifecycleCoroutineScope
 import com.ismartcoding.lib.brv.utils.bindingAdapter
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.ShareHelper
+import com.ismartcoding.plain.helpers.ShareHelper
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.DataType
-import com.ismartcoding.plain.data.preference.VideoPlaylistPreference
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.enums.DataType
+import com.ismartcoding.plain.preference.VideoPlaylistPreference
 import com.ismartcoding.plain.databinding.DialogListDrawerBinding
 import com.ismartcoding.plain.features.ActionEvent
-import com.ismartcoding.plain.features.tag.TagHelper
-import com.ismartcoding.plain.features.video.DVideo
-import com.ismartcoding.plain.features.video.VideoHelper
+import com.ismartcoding.plain.features.TagHelper
+import com.ismartcoding.plain.data.DVideo
+import com.ismartcoding.plain.features.video.VideoMediaStoreHelper
 import com.ismartcoding.plain.ui.CastDialog
 import com.ismartcoding.plain.ui.extensions.ensureSelect
 import com.ismartcoding.plain.ui.helpers.BottomMenuHelper
@@ -37,7 +37,7 @@ object VideosBottomMenuHelper {
         when (menuItem.itemId) {
             R.id.share -> {
                 rv.ensureSelect { items ->
-                    ShareHelper.share(context, ArrayList(items.map { VideoHelper.getItemUri(it.data.id) }))
+                    ShareHelper.shareUris(context, ArrayList(items.map { VideoMediaStoreHelper.getItemUri(it.data.id) }))
                 }
             }
 
@@ -59,7 +59,7 @@ object VideosBottomMenuHelper {
 
             R.id.delete -> {
                 rv.ensureSelect { items ->
-                    DialogHelper.confirmToDelete(context) {
+                    DialogHelper.confirmToDelete {
                         lifecycleScope.launch {
                             val ids = items.map { it.data.id }.toSet()
                             withIO {
@@ -67,11 +67,11 @@ object VideosBottomMenuHelper {
                                     ids,
                                     DataType.VIDEO,
                                 )
-                                VideoHelper.deleteRecordsAndFilesByIds(
+                                VideoMediaStoreHelper.deleteRecordsAndFilesByIds(
                                     context,
                                     ids,
                                 )
-                                VideoPlaylistPreference.deleteAsync(context, ids.map { VideoHelper.getItemUri(it).toString() }.toSet())
+                                VideoPlaylistPreference.deleteAsync(context, ids.map { VideoMediaStoreHelper.getItemUri(it).toString() }.toSet())
                             }
                             list.rv.bindingAdapter.checkedAll(false)
                             sendEvent(ActionEvent(ActionSourceType.VIDEO, ActionType.DELETED, ids))

@@ -8,12 +8,12 @@ import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.extensions.newPath
 import com.ismartcoding.lib.extensions.scanFileByConnection
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
-import com.ismartcoding.lib.helpers.ShareHelper
+import com.ismartcoding.plain.helpers.ShareHelper
 import com.ismartcoding.lib.helpers.ZipHelper
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.file.DFile
 import com.ismartcoding.plain.features.locale.LocaleHelper.getString
@@ -38,7 +38,7 @@ object FilesBottomMenuHelper {
         when (menuItem.itemId) {
             R.id.share -> {
                 rv.ensureSelect { items ->
-                    ShareHelper.sharePaths(context, items.map { it.data.id })
+                    ShareHelper.sharePaths(context, items.map { it.data.id }.toSet())
                 }
             }
             R.id.cut -> {
@@ -135,7 +135,7 @@ object FilesBottomMenuHelper {
             }
             R.id.delete -> {
                 rv.ensureSelect { items ->
-                    DialogHelper.confirmToDelete(context) {
+                    DialogHelper.confirmToDelete {
                         dialog.lifecycleScope.launch {
                             val paths = items.map { it.data.id }.toSet()
                             DialogHelper.showLoading()

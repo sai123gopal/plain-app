@@ -6,9 +6,13 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,11 +39,12 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.channel.sendEvent
-import com.ismartcoding.lib.helpers.FormatHelper
+import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.R
+import com.ismartcoding.plain.enums.ButtonType
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
-import com.ismartcoding.plain.features.RequestPermissionEvent
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.RequestPermissionsEvent
 import com.ismartcoding.plain.helpers.SoundMeterHelper
 import com.ismartcoding.plain.ui.base.*
 import kotlinx.coroutines.Dispatchers
@@ -65,7 +70,7 @@ fun SoundMeterPage(navController: NavHostController) {
     val events by remember { mutableStateOf<MutableList<Job>>(arrayListOf()) }
     var decibel by remember { mutableFloatStateOf(0f) }
     val decibelValueStrings = stringArrayResource(R.array.decibel_values)
-    val decibelValueString by remember {
+    val decibelValueString by remember(decibel) {
         derivedStateOf {
             if (decibel > 0) {
                 return@derivedStateOf decibelValueStrings.getOrNull((decibel / 10).toInt() - 1) ?: ""
@@ -77,7 +82,7 @@ fun SoundMeterPage(navController: NavHostController) {
 
     LaunchedEffect(Unit) {
         events.add(
-            receiveEventHandler<PermissionResultEvent> {
+            receiveEventHandler<PermissionsResultEvent> {
                 isRunning = Permission.RECORD_AUDIO.can(context)
             },
         )
@@ -86,6 +91,7 @@ fun SoundMeterPage(navController: NavHostController) {
     DisposableEffect(Unit) {
         onDispose {
             events.forEach { it.cancel() }
+            events.clear()
         }
     }
 
@@ -157,7 +163,7 @@ fun SoundMeterPage(navController: NavHostController) {
         topBarTitle = stringResource(id = R.string.sound_meter),
         actions = {
             PIconButton(
-                imageVector = Icons.Outlined.Info,
+                icon = Icons.Outlined.Info,
                 contentDescription = stringResource(R.string.decibel_values),
                 tint = MaterialTheme.colorScheme.onSurface,
             ) {
@@ -169,9 +175,9 @@ fun SoundMeterPage(navController: NavHostController) {
                 item {
                     Column(
                         modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 56.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 56.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Row(verticalAlignment = Alignment.Bottom) {
@@ -193,9 +199,9 @@ fun SoundMeterPage(navController: NavHostController) {
                 item {
                     Row(
                         modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 40.dp, vertical = 24.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 40.dp, vertical = 24.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Column(
@@ -224,26 +230,28 @@ fun SoundMeterPage(navController: NavHostController) {
                         text = decibelValueString,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(96.dp)
-                                .padding(16.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                            .padding(16.dp),
                         textAlign = TextAlign.Center,
                     )
-                    BlockOutlineButton(text = stringResource(id = if (isRunning) R.string.stop else R.string.start)) {
-                        if (isRunning) {
+                    if (isRunning) {
+                        PBlockButton(text = stringResource(id = R.string.stop), type = ButtonType.SECONDARY) {
                             isRunning = false
-                        } else {
+                        }
+                    } else {
+                        PBlockButton(text = stringResource(id = R.string.start)) {
                             if (Permission.RECORD_AUDIO.can(context)) {
                                 isRunning = true
                             } else {
-                                sendEvent(RequestPermissionEvent(Permission.RECORD_AUDIO))
+                                sendEvent(RequestPermissionsEvent(Permission.RECORD_AUDIO))
                             }
                         }
                     }
                     if (count > 0) {
                         VerticalSpace(dp = 40.dp)
-                        BlockOutlineButton(text = stringResource(id = R.string.reset)) {
+                        PBlockButton(text = stringResource(id = R.string.reset), type = ButtonType.DANGER) {
                             total = 0f
                             count = 0
                             decibel = 0f
@@ -259,24 +267,34 @@ fun SoundMeterPage(navController: NavHostController) {
     )
 
     if (decibelValuesDialogVisible) {
-        PDialog(onClose = {
+        AlertDialog(onDismissRequest = {
             decibelValuesDialogVisible = false
-        }) {
-            LazyColumn {
-                item {
-                    DisplayText(title = stringResource(id = R.string.decibel_values))
+        }, confirmButton = {
+            Button(
+                onClick = {
+                    decibelValuesDialogVisible = false
+                }
+            ) {
+                Text(stringResource(id = R.string.close))
+            }
+        },
+            title = {
+                Text(
+                    text = stringResource(id = R.string.decibel_values),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }, text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     decibelValueStrings.forEach {
                         SelectionContainer {
                             Text(
                                 text = it,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+                                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                                modifier = Modifier.padding(bottom = 8.dp),
                             )
                         }
                     }
-                    BottomSpace()
                 }
-            }
-        }
+            })
     }
 }

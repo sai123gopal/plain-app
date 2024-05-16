@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Send
@@ -29,8 +30,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.PickFileTag
-import com.ismartcoding.plain.data.enums.PickFileType
+import com.ismartcoding.plain.enums.PickFileTag
+import com.ismartcoding.plain.enums.PickFileType
 import com.ismartcoding.plain.features.PickFileEvent
 import com.ismartcoding.plain.ui.base.PIconButton
 
@@ -78,14 +79,14 @@ fun ChatInput(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 PIconButton(
-                    imageVector = Icons.Outlined.Image,
+                    icon = Icons.Outlined.Image,
                     contentDescription = stringResource(R.string.images),
                     tint = MaterialTheme.colorScheme.primary,
                 ) {
                     sendEvent(PickFileEvent(PickFileTag.SEND_MESSAGE, PickFileType.IMAGE_VIDEO, multiple = true))
                 }
                 PIconButton(
-                    imageVector = Icons.Outlined.Folder,
+                    icon = Icons.Outlined.Folder,
                     contentDescription = stringResource(R.string.files),
                     tint = MaterialTheme.colorScheme.primary,
                 ) {
@@ -93,7 +94,7 @@ fun ChatInput(
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 PIconButton(
-                    imageVector = Icons.Outlined.Send,
+                    icon = Icons.AutoMirrored.Outlined.Send,
                     contentDescription = stringResource(R.string.send_message),
                     tint = MaterialTheme.colorScheme.primary,
                 ) {

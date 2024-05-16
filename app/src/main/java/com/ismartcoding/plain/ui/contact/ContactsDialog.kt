@@ -11,16 +11,17 @@ import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.pinyin.Pinyin
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.DataType
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.enums.DataType
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
-import com.ismartcoding.plain.features.call.CallHelper
-import com.ismartcoding.plain.features.contact.ContactHelper
-import com.ismartcoding.plain.features.contact.DContact
-import com.ismartcoding.plain.features.tag.TagHelper
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.call.CallMediaStoreHelper
+import com.ismartcoding.plain.features.contact.ContactMediaStoreHelper
+import com.ismartcoding.plain.data.DContact
+import com.ismartcoding.plain.enums.AppFeatureType
+import com.ismartcoding.plain.features.TagHelper
 import com.ismartcoding.plain.ui.BaseListDrawerDialog
 import com.ismartcoding.plain.ui.extensions.checkPermission
 import com.ismartcoding.plain.ui.extensions.checkable
@@ -55,26 +56,27 @@ class ContactsDialog : BaseListDrawerDialog() {
                         if (contact.phoneNumbers.isNotEmpty()) {
                             phoneNumberToCall = contact.phoneNumbers[0].value
                             if (Permission.CALL_PHONE.can(requireContext())) {
-                                CallHelper.call(requireContext(), phoneNumberToCall)
+                                CallMediaStoreHelper.call(requireContext(), phoneNumberToCall)
                             } else {
                                 Permission.CALL_PHONE.grant(requireContext())
                             }
                         }
                     }
                 }
+
                 R.id.delete -> {
                     if (!Permission.WRITE_CONTACTS.can(requireContext())) {
                         Permission.WRITE_CONTACTS.grant(requireContext())
                         return@initBottomBar
                     }
                     binding.list.rv.ensureSelect { items ->
-                        DialogHelper.confirmToDelete(requireContext()) {
+                        DialogHelper.confirmToDelete {
                             lifecycleScope.launch {
                                 val ids = items.map { it.data.id }.toSet()
                                 DialogHelper.showLoading()
                                 withIO {
                                     TagHelper.deleteTagRelationByKeys(ids, DataType.CONTACT)
-                                    ContactHelper.deleteByIds(requireContext(), ids)
+                                    ContactMediaStoreHelper.deleteByIds(requireContext(), ids)
                                 }
                                 DialogHelper.hideLoading()
                                 binding.list.rv.bindingAdapter.checkedAll(false)
@@ -83,6 +85,7 @@ class ContactsDialog : BaseListDrawerDialog() {
                         }
                     }
                 }
+
                 else -> {
                     BottomMenuHelper.onMenuItemClick(viewModel, binding, this)
                 }
@@ -96,16 +99,17 @@ class ContactsDialog : BaseListDrawerDialog() {
     }
 
     override fun initEvents() {
-        receiveEvent<PermissionResultEvent> { event ->
-            if (event.permission == Permission.READ_CONTACTS) {
-                checkPermission()
-            } else if (event.permission == Permission.CALL_PHONE) {
+        receiveEvent<PermissionsResultEvent> { event ->
+            if (event.has(Permission.CALL_PHONE)) {
                 if (Permission.CALL_PHONE.can(requireContext())) {
-                    CallHelper.call(requireContext(), phoneNumberToCall)
+                    CallMediaStoreHelper.call(requireContext(), phoneNumberToCall)
                 } else {
                     DialogHelper.showMessage(R.string.call_phone_permission_required)
                 }
             }
+        }
+        receiveEvent<PermissionsResultEvent> { event ->
+            checkPermission()
         }
         receiveEvent<ActionEvent> { event ->
             if (event.source == ActionSourceType.CONTACT) {
@@ -115,7 +119,7 @@ class ContactsDialog : BaseListDrawerDialog() {
     }
 
     private fun checkPermission() {
-        binding.list.checkPermission(requireContext(), Permission.READ_CONTACTS)
+        binding.list.checkPermission(requireContext(), AppFeatureType.CONTACTS)
     }
 
     override fun updateList() {
@@ -124,14 +128,14 @@ class ContactsDialog : BaseListDrawerDialog() {
             val query = viewModel.getQuery()
             val items =
                 withIO {
-                    ContactHelper.search(
+                    ContactMediaStoreHelper.search(
                         requireContext(),
                         query,
                         viewModel.limit,
                         viewModel.offset,
                     ).sortedBy { Pinyin.toPinyin(it.fullName()) }
                 }
-            viewModel.total = withIO { ContactHelper.count(requireContext(), query) }
+            viewModel.total = withIO { ContactMediaStoreHelper.count(requireContext(), query) }
 
             val bindingAdapter = binding.list.rv.bindingAdapter
             val toggleMode = bindingAdapter.toggleMode

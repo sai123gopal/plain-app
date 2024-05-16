@@ -4,10 +4,10 @@ import androidx.lifecycle.MutableLiveData
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.plain.data.DMediaBucket
 import com.ismartcoding.plain.data.IData
-import com.ismartcoding.plain.data.enums.DataType
+import com.ismartcoding.plain.enums.DataType
 import com.ismartcoding.plain.db.DFeed
 import com.ismartcoding.plain.db.DTag
-import com.ismartcoding.plain.features.tag.TagHelper
+import com.ismartcoding.plain.features.TagHelper
 
 open class FilteredItemsViewModel : BaseItemsModel() {
     var data: IData? = null
@@ -23,10 +23,6 @@ open class FilteredItemsViewModel : BaseItemsModel() {
                     val tagId = (data as DTag).id
                     val ids = withIO { TagHelper.getKeysByTagId(tagId) }
                     query += " ids:${ids.joinToString(",")}"
-                }
-                is DFeed -> {
-                    val feedId = (data as DFeed).id
-                    query += " feed_id:$feedId"
                 }
                 is DType -> {
                     val type = (data as DType).id

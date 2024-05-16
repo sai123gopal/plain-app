@@ -10,16 +10,17 @@ import com.ismartcoding.lib.channel.receiveEvent
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.data.enums.ActionSourceType
-import com.ismartcoding.plain.data.enums.ActionType
-import com.ismartcoding.plain.data.enums.DataType
+import com.ismartcoding.plain.enums.ActionSourceType
+import com.ismartcoding.plain.enums.ActionType
+import com.ismartcoding.plain.enums.DataType
 import com.ismartcoding.plain.extensions.formatDateTime
 import com.ismartcoding.plain.features.ActionEvent
 import com.ismartcoding.plain.features.Permission
-import com.ismartcoding.plain.features.PermissionResultEvent
-import com.ismartcoding.plain.features.call.CallHelper
-import com.ismartcoding.plain.features.call.DCall
-import com.ismartcoding.plain.features.tag.TagHelper
+import com.ismartcoding.plain.features.PermissionsResultEvent
+import com.ismartcoding.plain.features.call.CallMediaStoreHelper
+import com.ismartcoding.plain.data.DCall
+import com.ismartcoding.plain.enums.AppFeatureType
+import com.ismartcoding.plain.features.TagHelper
 import com.ismartcoding.plain.ui.BaseListDrawerDialog
 import com.ismartcoding.plain.ui.extensions.checkPermission
 import com.ismartcoding.plain.ui.extensions.checkable
@@ -51,25 +52,26 @@ class CallsDialog : BaseListDrawerDialog() {
                         val m = items[0]
                         phoneNumberToCall = (m.data as DCall).number
                         if (Permission.CALL_PHONE.can(requireContext())) {
-                            CallHelper.call(requireContext(), phoneNumberToCall)
+                            CallMediaStoreHelper.call(requireContext(), phoneNumberToCall)
                         } else {
                             Permission.CALL_PHONE.grant(requireContext())
                         }
                     }
                 }
+
                 R.id.delete -> {
                     if (!Permission.WRITE_CALL_LOG.can(requireContext())) {
                         Permission.WRITE_CALL_LOG.grant(requireContext())
                         return@initBottomBar
                     }
                     binding.list.rv.ensureSelect { items ->
-                        DialogHelper.confirmToDelete(requireContext()) {
+                        DialogHelper.confirmToDelete {
                             lifecycleScope.launch {
                                 val ids = items.map { it.data.id }.toSet()
                                 DialogHelper.showLoading()
                                 withIO {
                                     TagHelper.deleteTagRelationByKeys(ids, DataType.CALL)
-                                    CallHelper.deleteByIds(requireContext(), ids)
+                                    CallMediaStoreHelper.deleteByIds(requireContext(), ids)
                                 }
                                 DialogHelper.hideLoading()
                                 binding.list.rv.bindingAdapter.checkedAll(false)
@@ -78,6 +80,7 @@ class CallsDialog : BaseListDrawerDialog() {
                         }
                     }
                 }
+
                 else -> {
                     BottomMenuHelper.onMenuItemClick(viewModel, binding, this)
                 }
@@ -86,17 +89,18 @@ class CallsDialog : BaseListDrawerDialog() {
     }
 
     override fun initEvents() {
-        receiveEvent<PermissionResultEvent> { event ->
-            if (event.permission == Permission.READ_CALL_LOG) {
-                checkPermission()
-            } else if (event.permission == Permission.CALL_PHONE) {
+        receiveEvent<PermissionsResultEvent> { event ->
+            if (event.has(Permission.CALL_PHONE)) {
                 if (Permission.CALL_PHONE.can(requireContext())) {
-                    CallHelper.call(requireContext(), phoneNumberToCall)
+                    CallMediaStoreHelper.call(requireContext(), phoneNumberToCall)
                 } else {
                     DialogHelper.showMessage(R.string.call_phone_permission_required)
                 }
+            } else {
+                checkPermission()
             }
         }
+
         receiveEvent<ActionEvent> { event ->
             if (event.source == ActionSourceType.CALL) {
                 binding.list.page.refresh()
@@ -110,14 +114,14 @@ class CallsDialog : BaseListDrawerDialog() {
     }
 
     private fun checkPermission() {
-        binding.list.checkPermission(requireContext(), Permission.READ_CALL_LOG)
+        binding.list.checkPermission(requireContext(), AppFeatureType.CALLS)
     }
 
     override fun updateList() {
         lifecycleScope.launch {
             val query = viewModel.getQuery()
-            val items = withIO { CallHelper.search(requireContext(), query, viewModel.limit, viewModel.offset) }
-            viewModel.total = withIO { CallHelper.count(requireContext(), query) }
+            val items = withIO { CallMediaStoreHelper.search(requireContext(), query, viewModel.limit, viewModel.offset) }
+            viewModel.total = withIO { CallMediaStoreHelper.count(requireContext(), query) }
 
             val bindingAdapter = binding.list.rv.bindingAdapter
             val toggleMode = bindingAdapter.toggleMode

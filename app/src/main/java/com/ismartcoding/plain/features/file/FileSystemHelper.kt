@@ -13,15 +13,14 @@ import com.ismartcoding.lib.extensions.getLongValue
 import com.ismartcoding.lib.extensions.getStringValue
 import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.plain.R
+import com.ismartcoding.plain.extensions.sorted
 import com.ismartcoding.plain.features.locale.LocaleHelper.getString
 import com.ismartcoding.plain.storageManager
 import com.ismartcoding.plain.storageStatsManager
 import kotlinx.datetime.Instant
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.LinkOption
-import java.nio.file.attribute.PosixFileAttributes
-import java.util.*
+import java.util.Collections
+import java.util.Locale
 import java.util.regex.Pattern
 
 object FileSystemHelper {
@@ -73,16 +72,20 @@ object FileSystemHelper {
 
     fun getInternalStoragePath(): String {
         return (
-            if (isRPlus()) {
-                storageManager.primaryStorageVolume.directory?.path
-            } else {
-                null
-            }
-        ) ?: Environment.getExternalStorageDirectory()?.absolutePath?.trimEnd('/') ?: ""
+                if (isRPlus()) {
+                    storageManager.primaryStorageVolume.directory?.path
+                } else {
+                    null
+                }
+                ) ?: Environment.getExternalStorageDirectory()?.absolutePath?.trimEnd('/') ?: ""
     }
 
     fun getInternalStorageName(context: Context): String {
         return storageManager.primaryStorageVolume.getDescription(context) ?: getString(R.string.internal_storage)
+    }
+
+    fun getExternalFilesDirPath(context: Context): String {
+        return context.getExternalFilesDir(null)!!.absolutePath
     }
 
     fun getSDCardPath(context: Context): String {
@@ -90,10 +93,10 @@ object FileSystemHelper {
         val directories =
             getStorageDirectories(context).filter {
                 it != internalPath &&
-                    !it.equals(
-                        "/storage/emulated/0",
-                        true,
-                    )
+                        !it.equals(
+                            "/storage/emulated/0",
+                            true,
+                        )
             }
 
         val fullSDPattern = Pattern.compile("^/storage/[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$")
@@ -177,7 +180,7 @@ object FileSystemHelper {
 
         if (!rawSecondaryStoragesStr.isNullOrEmpty()) {
             val rawSecondaryStorages =
-                rawSecondaryStoragesStr!!.split(
+                rawSecondaryStoragesStr.split(
                     File.pathSeparator.toRegex(),
                 ).dropLastWhile(String::isEmpty).toTypedArray()
             Collections.addAll(paths, *rawSecondaryStorages)
@@ -198,6 +201,7 @@ object FileSystemHelper {
             file.name,
             file.path,
             "",
+            null,
             Instant.fromEpochMilliseconds(file.lastModified()),
             size,
             isDir,
@@ -222,7 +226,7 @@ object FileSystemHelper {
             }
         }
 
-        return files.sort(sortBy)
+        return files.sorted(sortBy)
     }
 
     fun search(
@@ -264,7 +268,7 @@ object FileSystemHelper {
         val items = arrayListOf<DFile>()
         val limit = 100
         val uri =
-            MediaStore.Files.getContentUri("external").buildUpon()
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY).buildUpon()
                 .appendQueryParameter("limit", limit.toString())
                 .appendQueryParameter("offset", "0")
                 .build()
@@ -272,6 +276,7 @@ object FileSystemHelper {
             arrayOf(
                 MediaStore.Files.FileColumns.DATA,
                 MediaStore.Files.FileColumns.DISPLAY_NAME,
+                MediaStore.Files.FileColumns.DATE_ADDED,
                 MediaStore.Files.FileColumns.DATE_MODIFIED,
                 MediaStore.Files.FileColumns.SIZE,
             )
@@ -293,11 +298,14 @@ object FileSystemHelper {
 
                     val name = cursor.getStringValue(MediaStore.Files.FileColumns.DISPLAY_NAME, cache)
                     val size = cursor.getLongValue(MediaStore.Files.FileColumns.SIZE, cache)
+                    val createdAt = Instant.fromEpochMilliseconds(
+                        cursor.getLongValue(MediaStore.Files.FileColumns.DATE_ADDED, cache) * 1000L,
+                    )
                     val updatedAt =
                         Instant.fromEpochMilliseconds(
                             cursor.getLongValue(MediaStore.Files.FileColumns.DATE_MODIFIED, cache) * 1000L,
                         )
-                    items.add(DFile(name, path, "", updatedAt, size, false, 0))
+                    items.add(DFile(name, path, "", createdAt, updatedAt, size, false, 0))
                 } while (cursor.moveToNext())
             }
         }
@@ -305,38 +313,19 @@ object FileSystemHelper {
         return items.take(50)
     }
 
-    private fun parseFilePermission(f: File): String {
-        val attributes = Files.readAttributes(f.toPath(), PosixFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
-        val p = attributes.permissions()
-        return ""
+    fun getAllVolumeNames(context: Context): List<String> {
+        val volumeNames = mutableListOf(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        context.getExternalFilesDirs(null)
+            .mapNotNull { storageManager.getStorageVolume(it) }
+            .filterNot { it.isPrimary }
+            .mapNotNull { it.uuid?.lowercase(Locale.US) }
+            .forEach {
+                volumeNames.add(it)
+            }
+        return volumeNames
     }
+
+
 }
 
-fun List<DFile>.sort(sortBy: FileSortBy): List<DFile> {
-    val comparator = compareBy<DFile> { if (it.isDir) 0 else 1 }
-    return when (sortBy) {
-        FileSortBy.NAME_ASC -> {
-            this.sortedWith(comparator.thenBy { it.name.lowercase() })
-        }
 
-        FileSortBy.NAME_DESC -> {
-            this.sortedWith(comparator.thenByDescending { it.name.lowercase() })
-        }
-
-        FileSortBy.SIZE_ASC -> {
-            this.sortedWith(comparator.thenBy { it.size })
-        }
-
-        FileSortBy.SIZE_DESC -> {
-            this.sortedWith(comparator.thenByDescending { it.size })
-        }
-
-        FileSortBy.DATE_ASC -> {
-            this.sortedWith(comparator.thenBy { it.updatedAt })
-        }
-
-        FileSortBy.DATE_DESC -> {
-            this.sortedWith(comparator.thenByDescending { it.updatedAt })
-        }
-    }
-}

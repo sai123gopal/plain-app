@@ -1,40 +1,80 @@
 package com.ismartcoding.plain.ui.page
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.selection.SelectionContainer
+import android.annotation.SuppressLint
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.ismartcoding.plain.ui.base.DisplayText
+import com.ismartcoding.plain.enums.DarkTheme
+import com.ismartcoding.plain.preference.LocalDarkTheme
+import com.ismartcoding.plain.ui.base.AceEditor
+import com.ismartcoding.plain.ui.base.ActionButtonMore
+import com.ismartcoding.plain.ui.base.NoDataColumn
 import com.ismartcoding.plain.ui.base.PScaffold
-import com.ismartcoding.plain.ui.models.SharedViewModel
+import com.ismartcoding.plain.ui.components.EditorData
+import com.ismartcoding.plain.ui.models.TextFileViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
+@SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextPage(
     navController: NavHostController,
-    sharedViewModel: SharedViewModel,
+    title: String,
+    content: String,
+    language: String,
+    viewModel: TextFileViewModel = viewModel(),
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val darkTheme = LocalDarkTheme.current
+    val isDarkTheme = DarkTheme.isDarkTheme(darkTheme)
+
+    LaunchedEffect(Unit) {
+        scope.launch(Dispatchers.IO) {
+            viewModel.loadConfigAsync(context)
+            viewModel.isDataLoading.value = false
+        }
+    }
+
+    if (viewModel.showMoreActions.value) {
+        ViewTextContentBottomSheet(viewModel, content)
+    }
+
     PScaffold(
         navController,
-        content = {
-            LazyColumn {
-                item {
-                    DisplayText(title = sharedViewModel.textTitle.value)
-                }
-                item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        SelectionContainer {
-                            Text(text = sharedViewModel.textContent.value)
-                        }
-                    }
-                }
+        topBarTitle = title,
+        actions = {
+            ActionButtonMore {
+                viewModel.showMoreActions.value = true
             }
+        },
+        content = {
+            if (viewModel.isDataLoading.value) {
+                NoDataColumn(loading = true)
+                return@PScaffold
+            }
+            if (!viewModel.isEditorReady.value) {
+                NoDataColumn(loading = true)
+            }
+            AceEditor(
+                viewModel, scope, EditorData(
+                    language,
+                    viewModel.wrapContent.value,
+                    isDarkTheme = isDarkTheme,
+                    readOnly = viewModel.readOnly.value,
+                    gotoEnd = false,
+                    content = content
+                )
+            )
         },
     )
 }
+
+
+
+
