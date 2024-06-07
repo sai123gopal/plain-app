@@ -61,14 +61,15 @@ import com.ismartcoding.plain.ui.base.DynamicSVGImage
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwitch
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.Subtitle
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.components.ColorPickerDialog
-import com.ismartcoding.plain.ui.extensions.navigate
+import com.ismartcoding.plain.ui.nav.navigate
 import com.ismartcoding.plain.ui.helpers.DialogHelper
-import com.ismartcoding.plain.ui.page.RouteName
-import com.ismartcoding.plain.ui.svg.PALETTE
-import com.ismartcoding.plain.ui.svg.SVGString
+import com.ismartcoding.plain.ui.nav.RouteName
+import com.ismartcoding.plain.ui.base.svg.PALETTE
+import com.ismartcoding.plain.ui.base.svg.SVGString
 import com.ismartcoding.plain.ui.theme.PlainTheme
 import com.ismartcoding.plain.ui.theme.cardContainer
 import com.ismartcoding.plain.ui.theme.palette.TonalPalettes
@@ -93,8 +94,9 @@ fun ColorAndStylePage(navController: NavHostController) {
     var radioButtonSelected by remember { mutableIntStateOf(if (themeIndex > 4) 0 else 1) }
 
     PScaffold(
-        navController,
-        topBarTitle = stringResource(R.string.color_and_style),
+        topBar = {
+            PTopAppBar(navController = navController, title = stringResource(R.string.color_and_style))
+        },
         content = {
             LazyColumn {
                 item {
@@ -168,13 +170,12 @@ fun ColorAndStylePage(navController: NavHostController) {
                         text = stringResource(R.string.appearance),
                     )
                     PListItem(
+                        modifier = PlainTheme.getCardModifier().clickable {
+                            navController.navigate(RouteName.DARK_THEME)
+                        },
                         title = stringResource(R.string.dark_theme),
                         desc = DarkTheme.entries.find { it.value == darkTheme }?.getText(context) ?: "",
                         separatedActions = true,
-                        modifier = PlainTheme.getCardModifier(),
-                        onClick = {
-                            navController.navigate(RouteName.DARK_THEME)
-                        },
                     ) {
                         PSwitch(
                             activated = DarkTheme.isDarkTheme(darkTheme),

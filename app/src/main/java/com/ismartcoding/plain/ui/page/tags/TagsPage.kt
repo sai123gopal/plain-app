@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +37,7 @@ import com.ismartcoding.plain.ui.base.PDraggableElement
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwipeBox
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.SwipeActionButton
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
@@ -76,8 +78,12 @@ fun TagsPage(
     }
 
     PScaffold(
-        navController,
-        topBarTitle = stringResource(id = R.string.tags),
+        topBar = {
+            PTopAppBar(
+                navController = navController,
+                title = stringResource(R.string.tags),
+            )
+        },
         floatingActionButton =
         {
             PDraggableElement {
@@ -129,11 +135,10 @@ fun TagsPage(
                                 }
                             ) {
                                 PListItem(
-                                    title = m.name,
-                                    modifier = PlainTheme.getCardModifier(),
-                                    onClick = {
+                                    modifier = PlainTheme.getCardModifier().clickable {
                                         viewModel.showEditDialog(m)
                                     },
+                                    title = m.name,
                                 )
                             }
                             VerticalSpace(dp = 8.dp)

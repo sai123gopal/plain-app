@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -20,19 +19,15 @@ fun LoadMoreRefreshContent(isLoadFinish: Boolean = false) {
         modifier =
         Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 16.dp),
+            .padding(top = 8.dp, bottom = 32.dp),
         horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text =
-                if (isLoadFinish) {
-                    stringResource(id = R.string.load_no_more)
-                } else {
-                    stringResource(id = R.string.loading)
-                },
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.secondary,
-        )
+        if (!isLoadFinish) {
+            Text(
+                text = stringResource(id = R.string.loading),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
     }
 }

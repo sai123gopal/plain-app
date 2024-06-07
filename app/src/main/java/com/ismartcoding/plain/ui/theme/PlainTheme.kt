@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -20,6 +21,8 @@ object PlainTheme {
     val CARD_RADIUS = 12.dp
     val APP_BAR_HEIGHT = 64.dp
     const val ANIMATION_DURATION = 300
+
+    val cellsList = IntRange(2, 10).map { GridCells.Fixed(it) }.reversed()
 
     @Composable
     fun getCardModifier(index: Int = 0, size: Int = 1, selected: Boolean = false): Modifier {
@@ -39,7 +42,7 @@ object PlainTheme {
             .padding(horizontal = PAGE_HORIZONTAL_MARGIN)
             .clip(shape)
             .background(
-                color = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.cardContainer(),
+                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.cardContainer(),
                 shape = shape,
             )
     }

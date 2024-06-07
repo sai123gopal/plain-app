@@ -20,8 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ismartcoding.lib.extensions.getSummary
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.plain.db.DNote
 import com.ismartcoding.plain.db.DTag
@@ -40,11 +40,11 @@ import com.ismartcoding.plain.ui.theme.listItemTag
 @Composable
 fun NoteListItem(
     viewModel: NotesViewModel,
-    tagsViewModel: TagsViewModel,
     m: DNote,
     tags: List<DTag>,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onClickTag: (DTag) -> Unit
 ) {
     Row {
         if (viewModel.selectMode.value) {
@@ -71,7 +71,7 @@ fun NoteListItem(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = m.title,
+                    text = m.title.getSummary(),
                     style = MaterialTheme.typography.listItemDescription(),
                 )
                 VerticalSpace(dp = 8.dp)
@@ -91,14 +91,7 @@ fun NoteListItem(
                                 .align(Alignment.Bottom),
                             style = MaterialTheme.typography.listItemTag(),
                             onClick = {
-                                if (viewModel.selectMode.value) {
-                                    return@ClickableText
-                                }
-                                viewModel.trash.value = false
-                                viewModel.tag.value = tag
-                                coIO {
-                                    viewModel.loadAsync(tagsViewModel)
-                                }
+                                onClickTag(tag)
                             }
                         )
                     }

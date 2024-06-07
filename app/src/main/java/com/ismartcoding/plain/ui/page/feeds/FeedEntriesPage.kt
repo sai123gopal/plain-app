@@ -8,37 +8,41 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.ismartcoding.lib.channel.receiveEventHandler
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
@@ -49,7 +53,6 @@ import com.ismartcoding.plain.features.feed.FeedWorkerStatus
 import com.ismartcoding.plain.features.locale.LocaleHelper
 import com.ismartcoding.plain.ui.base.ActionButtonMoreWithMenu
 import com.ismartcoding.plain.ui.base.ActionButtonSearch
-import com.ismartcoding.plain.ui.base.BottomSpace
 import com.ismartcoding.plain.ui.base.HorizontalSpace
 import com.ismartcoding.plain.ui.base.NavigationBackIcon
 import com.ismartcoding.plain.ui.base.NavigationCloseIcon
@@ -61,30 +64,41 @@ import com.ismartcoding.plain.ui.base.PFilterChip
 import com.ismartcoding.plain.ui.base.PIconButton
 import com.ismartcoding.plain.ui.base.PMiniOutlineButton
 import com.ismartcoding.plain.ui.base.PScaffold
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
+import com.ismartcoding.plain.ui.base.fastscroll.LazyColumnScrollbar
 import com.ismartcoding.plain.ui.base.pullrefresh.LoadMoreRefreshContent
 import com.ismartcoding.plain.ui.base.pullrefresh.PullToRefresh
 import com.ismartcoding.plain.ui.base.pullrefresh.PullToRefreshContent
 import com.ismartcoding.plain.ui.base.pullrefresh.RefreshContentState
 import com.ismartcoding.plain.ui.base.pullrefresh.rememberRefreshLayoutState
+import com.ismartcoding.plain.ui.base.tabs.PScrollableTabRow
 import com.ismartcoding.plain.ui.components.FeedEntryListItem
-import com.ismartcoding.plain.ui.extensions.navigate
+import com.ismartcoding.plain.ui.components.ListSearchBar
+import com.ismartcoding.plain.ui.nav.navigate
+import com.ismartcoding.plain.ui.nav.navigateDetail
+import com.ismartcoding.plain.ui.nav.navigateTags
+import com.ismartcoding.plain.ui.extensions.reset
 import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.ui.models.FeedEntriesViewModel
 import com.ismartcoding.plain.ui.models.FeedsViewModel
 import com.ismartcoding.plain.ui.models.TagsViewModel
+import com.ismartcoding.plain.ui.models.enterSearchMode
+import com.ismartcoding.plain.ui.models.exitSearchMode
 import com.ismartcoding.plain.ui.models.exitSelectMode
 import com.ismartcoding.plain.ui.models.isAllSelected
 import com.ismartcoding.plain.ui.models.select
+import com.ismartcoding.plain.ui.models.showBottomActions
 import com.ismartcoding.plain.ui.models.toggleSelectAll
 import com.ismartcoding.plain.ui.models.toggleSelectMode
-import com.ismartcoding.plain.ui.page.RouteName
+import com.ismartcoding.plain.ui.nav.RouteName
 import com.ismartcoding.plain.workers.FeedFetchWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -107,9 +121,15 @@ fun FeedEntriesPage(
     val tagsState by tagsViewModel.itemsFlow.collectAsState()
     val tagsMapState by tagsViewModel.tagsMapFlow.collectAsState()
     val scope = rememberCoroutineScope()
-    val filtersScrollState = rememberScrollState()
     val events by remember { mutableStateOf<MutableList<Job>>(arrayListOf()) }
-    val scrollState = rememberLazyListState()
+    val scrollStateMap = remember {
+        mutableStateMapOf<Int, LazyListState>()
+    }
+    val pagerState = rememberPagerState(pageCount = { viewModel.tabs.value.size })
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(canScroll = {
+        (scrollStateMap[pagerState.currentPage]?.firstVisibleItemIndex ?: 0) > 0 && !viewModel.selectMode.value
+    })
+    var isFirstTime by remember { mutableStateOf(true) }
 
     val topRefreshLayoutState =
         rememberRefreshLayoutState {
@@ -118,14 +138,22 @@ fun FeedEntriesPage(
             }
         }
 
+    val once = rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        tagsViewModel.dataType.value = viewModel.dataType
-        viewModel.feedId.value = feedId
-        scope.launch(Dispatchers.IO) {
-            feedsViewModel.loadAsync()
-            viewModel.loadAsync(tagsViewModel)
+        if (!once.value) {
+            once.value = true
+            tagsViewModel.dataType.value = viewModel.dataType
+            viewModel.feedId.value = feedId
+            scope.launch(Dispatchers.IO) {
+                feedsViewModel.loadAsync()
+                viewModel.loadAsync(tagsViewModel)
+            }
+        } else {
+            // refresh tabs in case tag name changed in tags page
+            scope.launch(Dispatchers.IO) {
+                viewModel.refreshTabsAsync(tagsViewModel)
+            }
         }
-
         events.add(
             receiveEventHandler<FeedStatusEvent> { event ->
                 if (event.status == FeedWorkerStatus.COMPLETED) {
@@ -144,31 +172,61 @@ fun FeedEntriesPage(
                             else -> {}
                         }
                     } else {
-                        DialogHelper.showErrorDialog(FeedFetchWorker.errorMap.values.toList().joinToString("\n"))
+                        DialogHelper.showErrorDialog(FeedFetchWorker.errorMap.values.joinToString("\n"))
                     }
                 }
             }
         )
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            events.forEach { it.cancel() }
-            events.clear()
+    LaunchedEffect(pagerState.currentPage) {
+        if (isFirstTime) {
+            isFirstTime = false
+            return@LaunchedEffect
+        }
+
+        val tab = viewModel.tabs.value.getOrNull(pagerState.currentPage)
+        if (tab != null) {
+            when (tab.value) {
+                "all" -> {
+                    viewModel.filterType = FeedEntryFilterType.DEFAULT
+                    viewModel.tag.value = null
+                }
+
+                "today" -> {
+                    viewModel.filterType = FeedEntryFilterType.TODAY
+                    viewModel.tag.value = null
+                }
+
+                else -> {
+                    viewModel.filterType = FeedEntryFilterType.DEFAULT
+                    viewModel.tag.value = tagsState.find { it.id == tab.value }
+                }
+            }
+        }
+        scope.launch {
+            scrollBehavior.reset()
+            scrollStateMap[pagerState.currentPage]?.scrollToItem(0)
+        }
+        scope.launch(Dispatchers.IO) {
+            viewModel.loadAsync(tagsViewModel)
         }
     }
 
     val insetsController = WindowCompat.getInsetsController(window, view)
-    LaunchedEffect(viewModel.selectMode.value) {
-        if (viewModel.selectMode.value) {
-            insetsController.hide(WindowInsetsCompat.Type.navigationBars())
-        } else {
+    DisposableEffect(Unit) {
+        onDispose {
+            events.forEach { it.cancel() }
+            events.clear()
             insetsController.show(WindowInsetsCompat.Type.navigationBars())
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
+    LaunchedEffect(viewModel.selectMode.value) {
+        if (viewModel.selectMode.value) {
+            scrollBehavior.reset()
+            insetsController.hide(WindowInsetsCompat.Type.navigationBars())
+        } else {
             insetsController.show(WindowInsetsCompat.Type.navigationBars())
         }
     }
@@ -197,199 +255,234 @@ fun FeedEntriesPage(
         tagsState,
     )
 
-    BackHandler(enabled = viewModel.selectMode.value) {
-        viewModel.exitSelectMode()
+    val onSearch: (String) -> Unit = {
+        viewModel.searchActive.value = false
+        viewModel.showLoading.value = true
+        scope.launch {
+            scrollStateMap[pagerState.currentPage]?.scrollToItem(0)
+        }
+        scope.launch(Dispatchers.IO) {
+            viewModel.loadAsync(tagsViewModel)
+        }
+    }
+
+    BackHandler(enabled = viewModel.selectMode.value || viewModel.showSearchBar.value) {
+        if (viewModel.selectMode.value) {
+            viewModel.exitSelectMode()
+        } else if (viewModel.showSearchBar.value) {
+            if (!viewModel.searchActive.value || viewModel.queryText.value.isEmpty()) {
+                viewModel.exitSearchMode()
+                onSearch("")
+            }
+        }
     }
 
     PScaffold(
-        navController,
-        topBarTitle = pageTitle,
-        topBarOnDoubleClick = {
-            scope.launch {
-                scrollState.scrollToItem(0)
-            }
-        },
-        navigationIcon = {
-            if (viewModel.selectMode.value) {
-                NavigationCloseIcon {
-                    viewModel.exitSelectMode()
-                }
-            } else {
-                NavigationBackIcon {
-                    navController.popBackStack()
-                }
-            }
-        },
-        actions = {
-            if (viewModel.selectMode.value) {
-                PMiniOutlineButton(
-                    text = stringResource(if (viewModel.isAllSelected()) R.string.unselect_all else R.string.select_all),
-                    onClick = {
-                        viewModel.toggleSelectAll()
-                    },
+        topBar = {
+            if (viewModel.showSearchBar.value) {
+                ListSearchBar(
+                    viewModel = viewModel,
+                    onSearch = onSearch
                 )
-                HorizontalSpace(dp = 8.dp)
-            } else {
-                ActionButtonSearch {
-                    navController.navigate("${RouteName.FEED_ENTRIES.name}/search?q=")
-                }
-                if (viewModel.feedId.value.isEmpty()) {
-                    PIconButton(
-                        icon = Icons.Outlined.RssFeed,
-                        contentDescription = stringResource(R.string.subscriptions),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        navController.navigate(RouteName.FEEDS)
-                    }
-                }
-                ActionButtonMoreWithMenu { dismiss ->
-                    PDropdownMenuItemSelect(onClick = {
-                        dismiss()
-                        viewModel.toggleSelectMode()
-                    })
-                    PDropdownMenuItemTags(onClick = {
-                        dismiss()
-                        navController.navigate("${RouteName.TAGS.name}?dataType=${viewModel.dataType.value}")
-                    })
-                    if (viewModel.feedId.value.isEmpty()) {
-                        PDropdownMenuItemSettings(onClick = {
-                            dismiss()
-                            navController.navigate(RouteName.FEED_SETTINGS)
-                        })
-                    }
-                }
+                return@PScaffold
             }
+            PTopAppBar(
+                modifier = Modifier.combinedClickable(onClick = {}, onDoubleClick = {
+                    scope.launch {
+                        scrollStateMap[pagerState.currentPage]?.scrollToItem(0)
+                    }
+                }),
+                navController = navController,
+                navigationIcon = {
+                    if (viewModel.selectMode.value) {
+                        NavigationCloseIcon {
+                            viewModel.exitSelectMode()
+                        }
+                    } else {
+                        NavigationBackIcon {
+                            navController.popBackStack()
+                        }
+                    }
+                },
+                title = pageTitle,
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    if (viewModel.selectMode.value) {
+                        PMiniOutlineButton(
+                            text = stringResource(if (viewModel.isAllSelected()) R.string.unselect_all else R.string.select_all),
+                            onClick = {
+                                viewModel.toggleSelectAll()
+                            },
+                        )
+                        HorizontalSpace(dp = 8.dp)
+                    } else {
+                        ActionButtonSearch {
+                            viewModel.enterSearchMode()
+                        }
+                        if (viewModel.feedId.value.isEmpty()) {
+                            PIconButton(
+                                icon = Icons.Outlined.RssFeed,
+                                contentDescription = stringResource(R.string.subscriptions),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            ) {
+                                navController.navigate(RouteName.FEEDS)
+                            }
+                        }
+                        ActionButtonMoreWithMenu { dismiss ->
+                            PDropdownMenuItemSelect(onClick = {
+                                dismiss()
+                                viewModel.toggleSelectMode()
+                            })
+                            PDropdownMenuItemTags(onClick = {
+                                dismiss()
+                                navController.navigateTags(viewModel.dataType)
+                            })
+                            if (viewModel.feedId.value.isEmpty()) {
+                                PDropdownMenuItemSettings(onClick = {
+                                    dismiss()
+                                    navController.navigate(RouteName.FEED_SETTINGS)
+                                })
+                            }
+                        }
+                    }
+                }
+            )
         },
         bottomBar = {
             AnimatedVisibility(
-                visible = viewModel.selectMode.value,
+                visible = viewModel.showBottomActions(),
                 enter = slideInVertically { it },
                 exit = slideOutVertically { it }) {
                 SelectModeBottomActions(viewModel, tagsViewModel, tagsState)
             }
         },
-    ) {
+
+        ) { paddingValues ->
         if (!viewModel.selectMode.value) {
-            Row(
+            PScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .horizontalScroll(filtersScrollState),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .fillMaxWidth()
             ) {
-                PFilterChip(
-                    selected = viewModel.filterType == FeedEntryFilterType.DEFAULT && viewModel.tag.value == null,
-                    onClick = {
-                        viewModel.filterType = FeedEntryFilterType.DEFAULT
-                        viewModel.tag.value = null
-                        scope.launch(Dispatchers.IO) {
-                            viewModel.loadAsync(tagsViewModel)
-                        }
-                    },
-                    label = { Text(stringResource(id = R.string.all) + " (${viewModel.total.value})") }
-                )
-                PFilterChip(
-                    selected = viewModel.filterType == FeedEntryFilterType.TODAY && viewModel.tag.value == null,
-                    onClick = {
-                        viewModel.filterType = FeedEntryFilterType.TODAY
-                        viewModel.tag.value = null
-                        scope.launch(Dispatchers.IO) {
-                            viewModel.loadAsync(tagsViewModel)
-                        }
-                    },
-                    label = { Text(stringResource(id = R.string.today) + " (${viewModel.totalToday.value})") }
-                )
-                tagsState.forEach { tag ->
+                viewModel.tabs.value.forEachIndexed { index, s ->
                     PFilterChip(
-                        selected = viewModel.tag.value?.id == tag.id,
+                        modifier = Modifier.padding(start = if (index == 0) 0.dp else 8.dp),
+                        selected = pagerState.currentPage == index,
                         onClick = {
-                            viewModel.filterType = FeedEntryFilterType.DEFAULT
-                            viewModel.tag.value = tag
-                            scope.launch(Dispatchers.IO) {
-                                viewModel.loadAsync(tagsViewModel)
+                            scope.launch {
+                                pagerState.scrollToPage(index)
                             }
                         },
-                        label = { Text(if (viewModel.feedId.value.isNotEmpty()) tag.name else "${tag.name} (${tag.count})") }
+                        label = {
+                            if (index < 2) {
+                                Text(text = s.title + " (" + s.count + ")")
+                            } else {
+                                Text(if (viewModel.feedId.value.isNotEmpty() || viewModel.queryText.value.isNotEmpty()) s.title else "${s.title} (${s.count})")
+                            }
+                        }
                     )
                 }
             }
         }
-
-        PullToRefresh(
-            refreshLayoutState = topRefreshLayoutState,
-            refreshContent = remember {
-                {
-                    PullToRefreshContent(
-                        createText = {
-                            when (it) {
-                                RefreshContentState.Failed -> stringResource(id = R.string.sync_failed)
-                                RefreshContentState.Finished -> stringResource(id = R.string.synced)
-                                RefreshContentState.Refreshing -> stringResource(id = R.string.syncing)
-                                RefreshContentState.Dragging -> {
-                                    if (abs(getRefreshContentOffset()) < getRefreshContentThreshold()) {
-                                        stringResource(if (viewModel.feedId.value.isNotEmpty()) R.string.pull_down_to_sync_current_feed else R.string.pull_down_to_sync_all_feeds)
-                                    } else {
-                                        stringResource(if (viewModel.feedId.value.isNotEmpty()) R.string.release_to_sync_current_feed else R.string.release_to_sync_all_feeds)
+        if (pagerState.pageCount == 0) {
+            NoDataColumn(loading = viewModel.showLoading.value, search = viewModel.showSearchBar.value)
+            return@PScaffold
+        }
+        HorizontalPager(state = pagerState) { index ->
+            PullToRefresh(
+                refreshLayoutState = topRefreshLayoutState,
+                refreshContent = remember {
+                    {
+                        PullToRefreshContent(
+                            createText = {
+                                when (it) {
+                                    RefreshContentState.Failed -> stringResource(id = R.string.sync_failed)
+                                    RefreshContentState.Finished -> stringResource(id = R.string.synced)
+                                    RefreshContentState.Refreshing -> stringResource(id = R.string.syncing)
+                                    RefreshContentState.Dragging -> {
+                                        if (abs(getRefreshContentOffset()) < getRefreshContentThreshold()) {
+                                            stringResource(if (viewModel.feedId.value.isNotEmpty()) R.string.pull_down_to_sync_current_feed else R.string.pull_down_to_sync_all_feeds)
+                                        } else {
+                                            stringResource(if (viewModel.feedId.value.isNotEmpty()) R.string.release_to_sync_current_feed else R.string.release_to_sync_all_feeds)
+                                        }
                                     }
                                 }
                             }
-                        }
-                    )
-                }
-            },
-        ) {
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                if (itemsState.isNotEmpty()) {
-                    LazyColumn(
-                        Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(),
-                        state = scrollState,
-                    ) {
-                        item {
-                            TopSpace()
-                        }
-                        items(itemsState, key = { it.id }) { m ->
-                            val tagIds = tagsMapState[m.id]?.map { it.tagId } ?: emptyList()
-                            FeedEntryListItem(
-                                viewModel,
-                                tagsViewModel,
-                                m,
-                                feedsMap.value[m.feedId],
-                                tagsState.filter { tagIds.contains(it.id) },
-                                onClick = {
-                                    if (viewModel.selectMode.value) {
-                                        viewModel.select(m.id)
-                                    } else {
-                                        navController.navigate("${RouteName.FEED_ENTRIES.name}/${m.id}")
-                                    }
-                                },
-                                onLongClick = {
-                                    if (viewModel.selectMode.value) {
-                                        return@FeedEntryListItem
-                                    }
-                                    viewModel.selectedItem.value = m
-                                }
-                            )
-                            VerticalSpace(dp = 8.dp)
-                        }
-                        item {
-                            if (itemsState.isNotEmpty() && !viewModel.noMore.value) {
-                                LaunchedEffect(Unit) {
-                                    scope.launch(Dispatchers.IO) {
-                                        withIO { viewModel.moreAsync(tagsViewModel) }
-                                    }
-                                }
-                            }
-                            LoadMoreRefreshContent(viewModel.noMore.value)
-                            BottomSpace()
-                        }
+                        )
                     }
-                } else {
-                    NoDataColumn(loading = viewModel.showLoading.value)
+                },
+            ) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    if (itemsState.isNotEmpty()) {
+                        val scrollState = rememberLazyListState()
+                        scrollStateMap[index] = scrollState
+                        LazyColumnScrollbar(
+                            state = scrollState,
+                        ) {
+                            LazyColumn(
+                                Modifier
+                                    .fillMaxSize()
+                                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                                state = scrollState,
+                            ) {
+                                item(key = "top") {
+                                    TopSpace()
+                                }
+                                itemsIndexed(itemsState, key = { _, m -> m.id }) { index, m ->
+                                    val tagIds = tagsMapState[m.id]?.map { it.tagId } ?: emptyList()
+                                    FeedEntryListItem(
+                                        viewModel,
+                                        index,
+                                        m,
+                                        feedsMap.value[m.feedId],
+                                        tagsState.filter { tagIds.contains(it.id) },
+                                        onClick = {
+                                            if (viewModel.selectMode.value) {
+                                                viewModel.select(m.id)
+                                            } else {
+                                                navController.navigateDetail(RouteName.FEED_ENTRIES, m.id)
+                                            }
+                                        },
+                                        onLongClick = {
+                                            if (viewModel.selectMode.value) {
+                                                return@FeedEntryListItem
+                                            }
+                                            viewModel.selectedItem.value = m
+                                        },
+                                        onClickTag = { tag ->
+                                            if (viewModel.selectMode.value) {
+                                                return@FeedEntryListItem
+                                            }
+                                            val idx = viewModel.tabs.value.indexOfFirst { it.value == tag.id }
+                                            if (idx != -1) {
+                                                scope.launch {
+                                                    pagerState.scrollToPage(idx)
+                                                }
+                                            }
+                                        }
+                                    )
+                                    VerticalSpace(dp = 8.dp)
+                                }
+                                item(key = "bottom") {
+                                    if (itemsState.isNotEmpty() && !viewModel.noMore.value) {
+                                        LaunchedEffect(Unit) {
+                                            scope.launch(Dispatchers.IO) {
+                                                withIO { viewModel.moreAsync(tagsViewModel) }
+                                            }
+                                        }
+                                    }
+                                    LoadMoreRefreshContent(viewModel.noMore.value)
+                                    VerticalSpace(dp = paddingValues.calculateBottomPadding())
+                                }
+                            }
+                        }
+                    } else {
+                        NoDataColumn(loading = viewModel.showLoading.value, search = viewModel.showSearchBar.value)
+                    }
                 }
             }
         }

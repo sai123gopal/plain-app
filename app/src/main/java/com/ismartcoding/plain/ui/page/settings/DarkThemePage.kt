@@ -1,10 +1,12 @@
 package com.ismartcoding.plain.ui.page.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,7 @@ import com.ismartcoding.plain.ui.base.PCard
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwitch
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.Subtitle
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
@@ -37,8 +40,12 @@ fun DarkThemePage(navController: NavHostController) {
     val scope = rememberCoroutineScope()
 
     PScaffold(
-        navController,
-        topBarTitle = stringResource(R.string.dark_theme),
+        topBar = {
+            PTopAppBar(
+                navController = navController,
+                title = stringResource(R.string.dark_theme),
+            )
+        },
         content = {
             LazyColumn {
                 item {
@@ -48,14 +55,14 @@ fun DarkThemePage(navController: NavHostController) {
                     PCard {
                         DarkTheme.entries.map {
                             PListItem(
-                                title = it.getText(context),
-                                onClick = {
+                                modifier = Modifier.clickable {
                                     scope.launch {
                                         withIO {
                                             DarkThemePreference.putAsync(context, it)
                                         }
                                     }
                                 },
+                                title = it.getText(context),
                             ) {
                                 RadioButton(selected = it.value == darkTheme, onClick = {
                                     scope.launch {
@@ -75,12 +82,12 @@ fun DarkThemePage(navController: NavHostController) {
                     )
                     PCard {
                         PListItem(
-                            title = stringResource(R.string.amoled_dark_theme),
-                            onClick = {
+                            modifier = Modifier.clickable {
                                 scope.launch(Dispatchers.IO) {
                                     AmoledDarkThemePreference.putAsync(context, !amoledDarkTheme)
                                 }
                             },
+                            title = stringResource(R.string.amoled_dark_theme),
                         ) {
                             PSwitch(activated = amoledDarkTheme) {
                                 scope.launch(Dispatchers.IO) {

@@ -259,6 +259,11 @@ object WebPreference : BasePreference<Boolean>() {
     }
 }
 
+object DeveloperModePreference : BasePreference<Boolean>() {
+    override val default = false
+    override val key = booleanPreferencesKey("developer_mode")
+}
+
 object HttpsPreference : BasePreference<Boolean>() {
     override val default = false
     override val key = booleanPreferencesKey("https")
@@ -341,10 +346,10 @@ object KeyStorePasswordPreference : BasePreference<String>() {
         context: Context,
         preferences: Preferences,
     ) {
-        TempData.keyStorePassword = get(preferences)
-        if (TempData.keyStorePassword.isEmpty()) {
-            TempData.keyStorePassword = StringHelper.shortUUID()
-            putAsync(context, TempData.keyStorePassword)
+        var password = get(preferences)
+        if (password.isEmpty()) {
+            password = StringHelper.shortUUID()
+            putAsync(context, password)
         }
     }
 }
@@ -387,6 +392,16 @@ object AudioPlayModePreference : BasePreference<Int>() {
         val value = preferences[key]
         return MediaPlayMode.entries.find { it.ordinal == value } ?: MediaPlayMode.REPEAT
     }
+}
+
+object ImageGridCellsPerRowPreference : BasePreference<Int>() {
+    override val default = 3
+    override val key = intPreferencesKey("image_grid_cells_per_row")
+}
+
+object VideoGridCellsPerRowPreference : BasePreference<Int>() {
+    override val default = 3
+    override val key = intPreferencesKey("video_grid_cells_per_row")
 }
 
 abstract class BaseSortByPreference(
@@ -551,6 +566,11 @@ object AudioPlayingPreference : BasePreference<String>() {
         }
         return str
     }
+}
+
+object ChatInputTextPreference : BasePreference<String>() {
+    override val default = ""
+    override val key = stringPreferencesKey("chat_input_text")
 }
 
 object VideoPlaylistPreference : BasePreference<String>() {

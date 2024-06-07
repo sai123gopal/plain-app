@@ -10,16 +10,19 @@ import kotlinx.datetime.*
 import kotlinx.parcelize.Parcelize
 
 @Entity(tableName = "notes")
-@Parcelize
 data class DNote(
     @PrimaryKey override var id: String = StringHelper.shortUUID(),
-) : IData, Parcelable, DEntityBase() {
+) : IData, DEntityBase() {
     var title: String = ""
 
     @ColumnInfo(name = "deleted_at")
     var deletedAt: Instant? = null
 
     var content: String = ""
+
+    fun getSummary(): String {
+        return content.replace("\n", "").replaceFirst("^\\s*".toRegex(), "")
+    }
 }
 
 @Dao

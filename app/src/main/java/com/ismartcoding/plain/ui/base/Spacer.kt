@@ -1,5 +1,6 @@
 package com.ismartcoding.plain.ui.base
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -15,8 +16,12 @@ fun TopSpace() {
 }
 
 @Composable
-fun BottomSpace() {
-    VerticalSpace(dp = 40.dp)
+fun BottomSpace(paddingValues: PaddingValues? = null) {
+    if (paddingValues != null) {
+        VerticalSpace(dp = 40.dp + paddingValues.calculateBottomPadding())
+    } else {
+        VerticalSpace(dp = 40.dp)
+    }
 }
 
 @Composable

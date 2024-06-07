@@ -1,6 +1,5 @@
 package com.ismartcoding.lib.extensions
 
-import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -24,7 +23,6 @@ import androidx.core.content.ContextCompat
 import com.ismartcoding.lib.isQPlus
 import com.ismartcoding.lib.isRPlus
 import com.ismartcoding.lib.isTPlus
-import pl.droidsonroids.gif.BuildConfig
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -267,12 +265,20 @@ fun Context.isWifiConnected(): Boolean {
     return capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
 }
 
-fun Context.isGestureNavigationBar(): Boolean {
+fun Context.isGestureInteractionMode(): Boolean {
     val resourceId = resources.getIdentifier("config_navBarInteractionMode", "integer", "android")
     if (resourceId == 0) {
         return false
     }
     return resources.getInteger(resourceId) == 2
+}
+
+fun Context.getNavigationBarHeight(): Int {
+    return if (isGestureInteractionMode()) {
+        16
+    } else {
+        48
+    }
 }
 
 val Context.actionBarSize
@@ -304,3 +310,4 @@ fun Context.isPortrait(): Boolean {
 fun Context.isTV(): Boolean {
     return packageManager.hasSystemFeature("android.hardware.type.television")
 }
+

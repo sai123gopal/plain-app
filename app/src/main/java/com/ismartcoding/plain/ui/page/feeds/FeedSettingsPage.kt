@@ -1,5 +1,6 @@
 package com.ismartcoding.plain.ui.page.feeds
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,7 @@ import com.ismartcoding.plain.ui.base.PDialogRadioRow
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwitch
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.RadioDialog
 import com.ismartcoding.plain.ui.base.RadioDialogOption
 import com.ismartcoding.plain.ui.base.TopSpace
@@ -46,7 +49,6 @@ fun FeedSettingsPage(
     viewModel: FeedSettingsViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         viewModel.loadSettings(context)
     }
@@ -76,8 +78,9 @@ fun FeedSettingsPage(
     }
 
     PScaffold(
-        navController,
-        topBarTitle = stringResource(id = R.string.settings),
+        topBar = {
+            PTopAppBar(navController = navController, title = stringResource(id = R.string.settings))
+        },
     ) {
         LazyColumn {
             item {
@@ -86,10 +89,10 @@ fun FeedSettingsPage(
             item {
                 PCard {
                     PListItem(
-                        title = stringResource(id = R.string.auto_refresh_feeds),
-                        onClick = {
+                        modifier = Modifier.clickable {
                             viewModel.setAutoRefresh(context, !viewModel.autoRefresh.value)
-                        }
+                        },
+                        title = stringResource(id = R.string.auto_refresh_feeds),
                     ) {
                         PSwitch(
                             activated = viewModel.autoRefresh.value,
@@ -100,18 +103,18 @@ fun FeedSettingsPage(
 
                     if (viewModel.autoRefresh.value) {
                         PListItem(
+                            modifier = Modifier.clickable {
+                                viewModel.showIntervalDialog.value = true
+                            },
                             title = stringResource(id = R.string.auto_refresh_interval),
                             value = FormatHelper.formatSeconds(viewModel.autoRefreshInterval.value),
                             showMore = true,
-                            onClick = {
-                                viewModel.showIntervalDialog.value = true
-                            }
                         )
                         PListItem(
-                            title = stringResource(id = R.string.auto_refresh_only_over_wifi),
-                            onClick = {
+                            modifier = Modifier.clickable {
                                 viewModel.setAutoRefreshOnlyWifi(context, !viewModel.autoRefreshOnlyWifi.value)
-                            }
+                            },
+                            title = stringResource(id = R.string.auto_refresh_only_over_wifi),
                         ) {
                             PSwitch(
                                 activated = viewModel.autoRefreshOnlyWifi.value,
@@ -141,7 +144,6 @@ fun ClearFeedsDialog(
     viewModel: FeedSettingsViewModel,
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = {
             viewModel.showClearFeedsDialog.value = false

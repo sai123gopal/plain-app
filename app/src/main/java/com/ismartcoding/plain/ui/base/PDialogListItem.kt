@@ -23,8 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.size.Size
-import com.ismartcoding.lib.extensions.dp2px
+import coil3.compose.AsyncImage
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.ui.theme.palette.LocalTonalPalettes
 import com.ismartcoding.plain.ui.theme.palette.onDark
@@ -32,6 +31,7 @@ import com.ismartcoding.plain.ui.theme.palette.onDark
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PDialogListItem(
+    modifier: Modifier = Modifier,
     title: String,
     desc: String? = null,
     value: String? = null,
@@ -41,11 +41,10 @@ fun PDialogListItem(
     action: (@Composable () -> Unit)? = null,
 ) {
     val tonalPalettes = LocalTonalPalettes.current
-    val context = LocalContext.current
 
     Row(
         modifier =
-        Modifier
+        modifier
             .fillMaxWidth()
             .padding(0.dp, 8.dp, 8.dp, 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -68,12 +67,11 @@ fun PDialogListItem(
                     contentDescription = title,
                 )
             } else if (icon is String) {
-                PAsyncImage(
+                AsyncImage(
+                    model = icon,
                     contentDescription = title,
                     modifier = Modifier
                         .size(24.dp),
-                    data = icon,
-                    size = Size(context.dp2px(24), context.dp2px(24)),
                 )
                 HorizontalSpace(dp = 16.dp)
             }

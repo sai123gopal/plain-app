@@ -24,15 +24,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.ismartcoding.lib.extensions.formatBytes
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.helpers.ShareHelper
-import com.ismartcoding.plain.ui.MainActivity
 import com.ismartcoding.plain.ui.base.PBlockButton
 import com.ismartcoding.plain.ui.base.PIconButton
 import com.ismartcoding.plain.ui.base.PScaffold
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.VerticalSpace
-import com.ismartcoding.plain.ui.extensions.openPathIntent
 import java.io.File
 
 @SuppressLint("MissingPermission")
@@ -46,15 +46,20 @@ fun OtherFilePage(
     val file = File(path)
 
     PScaffold(
-        navController,
-        actions = {
-            PIconButton(
-                icon = Icons.Outlined.Share,
-                contentDescription = stringResource(R.string.share),
-                tint = MaterialTheme.colorScheme.onSurface,
-            ) {
-                ShareHelper.shareFile(context, File(path))
-            }
+        topBar = {
+            PTopAppBar(
+                navController = navController,
+                title = file.name,
+                actions = {
+                    PIconButton(
+                        icon = Icons.Outlined.Share,
+                        contentDescription = stringResource(R.string.share),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        ShareHelper.shareFile(context, File(path))
+                    }
+                },
+            )
         },
         content = {
             LazyColumn {
@@ -87,7 +92,7 @@ fun OtherFilePage(
                         VerticalSpace(dp = 16.dp)
                         SelectionContainer {
                             Text(
-                                text = stringResource(R.string.file_size) + ": " + FormatHelper.formatBytes(file.length()),
+                                text = stringResource(R.string.file_size) + ": " + file.length().formatBytes(),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .padding(horizontal = 32.dp),
@@ -106,7 +111,7 @@ fun OtherFilePage(
                         )
                         VerticalSpace(dp = 64.dp)
                         PBlockButton(text = stringResource(id = R.string.open_with_other_app)) {
-                            MainActivity.instance.get()?.openPathIntent(path)
+                            ShareHelper.openPathWith(context, path)
                         }
                     }
                 }

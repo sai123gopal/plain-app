@@ -86,17 +86,18 @@
         android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:largeHeap="true"
         android:localeConfig="@xml/locales_config"
         android:theme="@style/Theme.Splash"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".ui.MainActivity"
-            android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout"
+            android:configChanges="uiMode|orientation|screenSize|smallestScreenSize|screenLayout|locale|layoutDirection"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleInstance"
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustResize"
-            tools:ignore="LockedOrientationActivity">
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -150,17 +151,29 @@
             android:foregroundServiceType="mediaProjection" />
 
         <service
-            android:name=".services.NotificationListenerMonitorService"
-            android:exported="false" />
-
-        <service
-            android:name=".services.NotificationListenerService"
+            android:name=".services.PNotificationListenerService"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+<!--        <service-->
+<!--            android:exported="true"-->
+<!--            android:name=".services.QSTileService"-->
+<!--            android:icon="@drawable/ic_app_icon"-->
+<!--            android:label="@string/app_name"-->
+<!--            android:foregroundServiceType="specialUse"-->
+<!--            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"-->
+<!--            android:process=":RunPlainServiceDaemon">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.service.quicksettings.action.QS_TILE" />-->
+<!--            </intent-filter>-->
+<!--            <property-->
+<!--                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"-->
+<!--                android:value="tile" />-->
+<!--        </service>-->
 
         <receiver
             android:name=".receivers.ServiceStopBroadcastReceiver"

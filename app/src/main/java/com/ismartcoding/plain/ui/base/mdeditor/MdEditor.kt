@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.debounce
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class, FlowPreview::class)
 @Composable
 fun MdEditor(
+    modifier: Modifier,
     viewModel: MdEditorViewModel,
     scrollState: ScrollState,
     focusRequester: FocusRequester,
@@ -57,10 +58,9 @@ fun MdEditor(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .padding(bottom = 56.dp)
     ) {
         val lineNumberWidth = if (viewModel.showLineNumbers) measureTextWidth(" ${lineCount + 1} ", MaterialTheme.typography.bodyLarge) else 0.dp
         if (viewModel.showLineNumbers) {

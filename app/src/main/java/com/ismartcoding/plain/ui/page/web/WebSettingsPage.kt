@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -49,6 +50,7 @@ import com.ismartcoding.plain.preference.LocalWeb
 import com.ismartcoding.plain.preference.WebSettingsProvider
 import com.ismartcoding.plain.features.IgnoreBatteryOptimizationResultEvent
 import com.ismartcoding.plain.features.Permission
+import com.ismartcoding.plain.features.PermissionItem
 import com.ismartcoding.plain.features.Permissions
 import com.ismartcoding.plain.features.PermissionsResultEvent
 import com.ismartcoding.plain.features.RequestPermissionsEvent
@@ -56,6 +58,7 @@ import com.ismartcoding.plain.features.WindowFocusChangedEvent
 import com.ismartcoding.plain.helpers.AppHelper
 import com.ismartcoding.plain.packageManager
 import com.ismartcoding.plain.powerManager
+import com.ismartcoding.plain.services.PNotificationListenerService
 import com.ismartcoding.plain.ui.base.ActionButtonMoreWithMenu
 import com.ismartcoding.plain.ui.base.PAlert
 import com.ismartcoding.plain.ui.base.AlertType
@@ -68,17 +71,18 @@ import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PMainSwitch
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwitch
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.Subtitle
 import com.ismartcoding.plain.ui.base.Tips
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
 import com.ismartcoding.plain.ui.components.WebAddress
-import com.ismartcoding.plain.ui.extensions.navigate
+import com.ismartcoding.plain.ui.nav.navigate
 import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.ui.models.MainViewModel
 import com.ismartcoding.plain.ui.models.VClickText
 import com.ismartcoding.plain.ui.models.WebConsoleViewModel
-import com.ismartcoding.plain.ui.page.RouteName
+import com.ismartcoding.plain.ui.nav.RouteName
 import com.ismartcoding.plain.ui.theme.PlainTheme
 import com.ismartcoding.plain.web.HttpServerManager
 import kotlinx.coroutines.Dispatchers
@@ -110,9 +114,12 @@ fun WebSettingsPage(
 
         LaunchedEffect(Unit) {
             events.add(
-                receiveEventHandler<PermissionsResultEvent> {
+                receiveEventHandler<PermissionsResultEvent> { event ->
                     permissionList = Permissions.getWebList(context)
                     systemAlertWindow = Permission.SYSTEM_ALERT_WINDOW.can(context)
+                    if (event.map[Permission.NOTIFICATION_LISTENER.toSysPermission()] == true) {
+                        PNotificationListenerService.toggle(context, true)
+                    }
                 }
             )
 
@@ -120,12 +127,6 @@ fun WebSettingsPage(
                 receiveEventHandler<WindowFocusChangedEvent> {
                     shouldIgnoreOptimize = !powerManager.isIgnoringBatteryOptimizations(BuildConfig.APPLICATION_ID)
                     isVPNConnected = NetworkHelper.isVPNConnected(context)
-                }
-            )
-
-            events.add(
-                receiveEventHandler<PermissionsResultEvent> {
-                    permissionList = Permissions.getWebList(context)
                 }
             )
 
@@ -139,6 +140,26 @@ fun WebSettingsPage(
             })
         }
 
+        fun togglePermission(m: PermissionItem, enable: Boolean) {
+            scope.launch {
+                withIO { ApiPermissionsPreference.putAsync(context, m.permission, enable) }
+                if (enable) {
+                    val ps = m.permissions.filter { !it.can(context) }
+                    if (ps.isNotEmpty()) {
+                        sendEvent(RequestPermissionsEvent(*ps.toTypedArray()))
+                    } else {
+                        if (m.permission == Permission.NOTIFICATION_LISTENER) {
+                            PNotificationListenerService.toggle(context, true)
+                        }
+                    }
+                } else {
+                    if (m.permission == Permission.NOTIFICATION_LISTENER) {
+                        PNotificationListenerService.toggle(context, false)
+                    }
+                }
+            }
+        }
+
         DisposableEffect(Unit) {
             onDispose {
                 events.forEach { it.cancel() }
@@ -146,37 +167,41 @@ fun WebSettingsPage(
             }
         }
 
-        PScaffold(navController, topBarTitle = stringResource(id = R.string.web_console), actions = {
-            PMiniOutlineButton(
-                text = stringResource(R.string.sessions),
-                onClick = {
-                    navController.navigate(RouteName.SESSIONS)
-                },
-            )
-            ActionButtonMoreWithMenu { dismiss ->
-                PDropdownMenuItem(leadingIcon = {
-                    Icon(
-                        Icons.Outlined.Password,
-                        contentDescription = stringResource(id = R.string.security)
+        PScaffold(topBar = {
+            PTopAppBar(navController = navController,
+                title = stringResource(id = R.string.web_console),
+                actions = {
+                    PMiniOutlineButton(
+                        text = stringResource(R.string.sessions),
+                        onClick = {
+                            navController.navigate(RouteName.SESSIONS)
+                        },
                     )
-                }, onClick = {
-                    dismiss()
-                    navController.navigate(RouteName.WEB_SECURITY)
-                }, text = {
-                    Text(text = stringResource(R.string.security))
+                    ActionButtonMoreWithMenu { dismiss ->
+                        PDropdownMenuItem(leadingIcon = {
+                            Icon(
+                                Icons.Outlined.Password,
+                                contentDescription = stringResource(id = R.string.security)
+                            )
+                        }, onClick = {
+                            dismiss()
+                            navController.navigate(RouteName.WEB_SECURITY)
+                        }, text = {
+                            Text(text = stringResource(R.string.security))
+                        })
+                        PDropdownMenuItem(leadingIcon = {
+                            Icon(
+                                Icons.Outlined.DeveloperMode,
+                                contentDescription = stringResource(id = R.string.testing_token)
+                            )
+                        }, onClick = {
+                            dismiss()
+                            navController.navigate(RouteName.WEB_DEV)
+                        }, text = {
+                            Text(text = stringResource(R.string.testing_token))
+                        })
+                    }
                 })
-                PDropdownMenuItem(leadingIcon = {
-                    Icon(
-                        Icons.Outlined.DeveloperMode,
-                        contentDescription = stringResource(id = R.string.testing_token)
-                    )
-                }, onClick = {
-                    dismiss()
-                    navController.navigate(RouteName.WEB_DEV)
-                }, text = {
-                    Text(text = stringResource(R.string.testing_token))
-                })
-            }
         }, content = {
             LazyColumn {
                 item {
@@ -278,10 +303,7 @@ fun WebSettingsPage(
                         VerticalSpace(dp = 16.dp)
                         PCard {
                             PListItem(
-                                icon = m.icon,
-                                title = permission.getText(),
-                                showMore = true,
-                                onClick = {
+                                modifier = Modifier.clickable {
                                     val intent =
                                         Intent(
                                             if (context.isTV()) Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS else Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -294,40 +316,27 @@ fun WebSettingsPage(
                                         DialogHelper.showMessage(R.string.not_supported_error)
                                     }
                                 },
+                                icon = m.icon,
+                                title = permission.getText(),
+                                showMore = true,
                             )
                         }
                     } else {
                         PListItem(
-                            modifier = PlainTheme.getCardModifier(index = index, size = permissionList.size - 1),
+                            modifier = PlainTheme
+                                .getCardModifier(index = index, size = permissionList.size - 1)
+                                .clickable {
+                                    togglePermission(m, !enabledPermissions.contains(permission.name))
+                                },
                             icon = m.icon,
                             title = permission.getText(),
                             desc =
                             stringResource(
                                 if (m.granted) R.string.system_permission_granted else R.string.system_permission_not_granted,
                             ),
-                            onClick = {
-                                scope.launch {
-                                    val enable = withIO { !permission.isEnabledAsync(context) }
-                                    withIO { ApiPermissionsPreference.putAsync(context, permission, enable) }
-                                    if (enable) {
-                                        val ps = m.permissions.filter { !it.can(context) }
-                                        if (ps.isNotEmpty()) {
-                                            sendEvent(RequestPermissionsEvent(*ps.toTypedArray()))
-                                        }
-                                    }
-                                }
-                            },
                         ) {
                             PSwitch(activated = enabledPermissions.contains(permission.name)) { enable ->
-                                scope.launch {
-                                    withIO { ApiPermissionsPreference.putAsync(context, permission, enable) }
-                                    if (enable) {
-                                        val ps = m.permissions.filter { !it.can(context) }
-                                        if (ps.isNotEmpty()) {
-                                            sendEvent(RequestPermissionsEvent(*ps.toTypedArray()))
-                                        }
-                                    }
-                                }
+                                togglePermission(m, enable)
                             }
                         }
                     }
@@ -338,9 +347,9 @@ fun WebSettingsPage(
                         text = stringResource(id = R.string.performance),
                     )
                     PCard {
-                        PListItem(title = stringResource(id = R.string.keep_awake), onClick = {
+                        PListItem(modifier = Modifier.clickable {
                             viewModel.enableKeepAwake(context, !keepAwake)
-                        }) {
+                        }, title = stringResource(id = R.string.keep_awake)) {
                             PSwitch(activated = keepAwake) { enable ->
                                 viewModel.enableKeepAwake(context, enable)
                             }
@@ -349,9 +358,8 @@ fun WebSettingsPage(
                     Tips(stringResource(id = R.string.keep_awake_tips))
                     VerticalSpace(dp = 16.dp)
                     PCard {
-                        PListItem(title = stringResource(id = if (shouldIgnoreOptimize) R.string.disable_battery_optimization else R.string.battery_optimization_disabled),
-                            showMore = true,
-                            onClick = {
+                        PListItem(
+                            modifier = Modifier.clickable {
                                 if (shouldIgnoreOptimize) {
                                     viewModel.requestIgnoreBatteryOptimization()
                                 } else {
@@ -359,7 +367,10 @@ fun WebSettingsPage(
                                     intent.action = Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
                                     context.startActivity(intent)
                                 }
-                            })
+                            },
+                            title = stringResource(id = if (shouldIgnoreOptimize) R.string.disable_battery_optimization else R.string.battery_optimization_disabled),
+                            showMore = true
+                        )
                     }
                 }
                 item {

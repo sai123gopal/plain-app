@@ -6,12 +6,17 @@ import android.provider.MediaStore
 import android.telephony.PhoneNumberUtils
 import com.ismartcoding.lib.Constants
 import java.io.File
+import java.net.URL
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.text.Normalizer
 import java.text.SimpleDateFormat
-import java.util.*
+import java.text.StringCharacterIterator
+import java.util.Base64
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.ceil
 
 fun String.getFilenameFromPath() = substring(lastIndexOf("/") + 1)
@@ -35,6 +40,15 @@ fun String.pathToUri(): Uri {
     return Uri.parse(this)
 }
 
+fun String.isUrl(): Boolean {
+    return try {
+        URL(this)
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+
 fun String.toAppUrl(context: Context): String {
     val prefix = context.getExternalFilesDir(null)?.path?.removeSuffix("/") + "/"
     return this.replace(prefix, "app://")
@@ -42,7 +56,7 @@ fun String.toAppUrl(context: Context): String {
 
 fun String.getFilenameWithoutExtension() = substringBeforeLast(".")
 
-fun String.getFilenameExtension() = substring(lastIndexOf(".") + 1)
+fun String.getFilenameExtension() = substring(lastIndexOf(".") + 1).lowercase()
 
 fun String.toUTCDate(): Date? {
     val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ENGLISH)
@@ -279,6 +293,7 @@ private val typesMap =
         put("h", "text/plain")
         put("hdf", "application/x-hdf")
         put("hdml", "text/x-hdml")
+        put("heif", "image/heif")
         put("hhc", "application/x-oleobject")
         put("hhk", "application/octet-stream")
         put("hhp", "application/octet-stream")
@@ -814,4 +829,12 @@ fun String.pathToAceMode(): String {
         "r" -> "r"
         else -> "text" // Default to plain text if no specific mapping found
     }
+}
+
+fun String.getSummary(): String {
+    // Define regex to match Markdown image syntax and HTML img tags
+    val regex = Regex("!\\[.*?\\]\\(.*?\\)|!\\[.*?\\]\\[.*?\\]|<img.*?>", RegexOption.IGNORE_CASE)
+
+    // Replace matched patterns with an empty string, replace newlines with an empty string, and trim leading whitespace
+    return replace(regex, "🖼").replace("\n", "").replaceFirst("^\\s*".toRegex(), "")
 }

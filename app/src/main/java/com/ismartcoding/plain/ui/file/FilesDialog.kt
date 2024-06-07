@@ -14,6 +14,7 @@ import com.ismartcoding.lib.brv.utils.bindingAdapter
 import com.ismartcoding.lib.brv.utils.linear
 import com.ismartcoding.lib.brv.utils.setup
 import com.ismartcoding.lib.channel.receiveEvent
+import com.ismartcoding.lib.extensions.formatBytes
 import com.ismartcoding.lib.extensions.getFilenameFromPath
 import com.ismartcoding.lib.extensions.isAudioFast
 import com.ismartcoding.lib.extensions.isImageFast
@@ -42,6 +43,7 @@ import com.ismartcoding.plain.data.DPlaylistAudio
 import com.ismartcoding.plain.enums.AppFeatureType
 import com.ismartcoding.plain.features.file.FileSystemHelper
 import com.ismartcoding.plain.features.locale.LocaleHelper
+import com.ismartcoding.plain.helpers.ShareHelper
 import com.ismartcoding.plain.ui.BaseDialog
 import com.ismartcoding.plain.ui.MainActivity
 import com.ismartcoding.plain.ui.PdfViewerDialog
@@ -56,7 +58,6 @@ import com.ismartcoding.plain.ui.extensions.initToggleMode
 import com.ismartcoding.plain.ui.extensions.onBack
 import com.ismartcoding.plain.ui.extensions.onMenuItemClick
 import com.ismartcoding.plain.ui.extensions.onSearch
-import com.ismartcoding.plain.ui.extensions.openPathIntent
 import com.ismartcoding.plain.ui.extensions.setSafeClick
 import com.ismartcoding.plain.ui.extensions.updateDrawerMenuAsync
 import com.ismartcoding.plain.ui.extensions.updateFilesTitle
@@ -149,7 +150,7 @@ class FilesDialog(val fileType: FilesType = FilesType.INTERNAL_STORAGE) : BaseDi
                         items =
                         items.filter { !it.data.isDir && (it.data.path.isVideoFast() || it.data.path.isImageFast()) }.map { s ->
                             val path = s.data.path
-                            PreviewItem(path, path.pathToUri(), path)
+                            PreviewItem(path, path)
                         },
                         initKey = m.data.path,
                     )
@@ -170,7 +171,7 @@ class FilesDialog(val fileType: FilesType = FilesType.INTERNAL_STORAGE) : BaseDi
                 } else if (m.data.path.isPdfFile()) {
                     PdfViewerDialog(Uri.fromFile(File(m.data.path))).show()
                 } else {
-                    MainActivity.instance.get()?.openPathIntent(m.data.path)
+                    ShareHelper.openPathWith(requireContext(), m.data.path)
                 }
             }, onChecked = {
                 updateBottomActions()
@@ -364,7 +365,7 @@ class FilesDialog(val fileType: FilesType = FilesType.INTERNAL_STORAGE) : BaseDi
                             } else {
                                 startIconId = R.drawable.ic_file
                             }
-                            subtitle = FormatHelper.formatBytes(f.size) + ", " + f.updatedAt.formatDateTime()
+                            subtitle = f.size.formatBytes() + ", " + f.updatedAt.formatDateTime()
                         }
                     }
                 },

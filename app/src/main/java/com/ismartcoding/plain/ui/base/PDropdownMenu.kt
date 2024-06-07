@@ -7,8 +7,14 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.Cast
 import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Grid3x3
+import androidx.compose.material.icons.outlined.Grid4x4
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ViewColumn
+import androidx.compose.material.icons.rounded.ViewColumn
+import androidx.compose.material.icons.rounded.ViewCompact
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +77,16 @@ fun PDropdownMenuItemSelect(onClick: () -> Unit) {
 }
 
 @Composable
+fun PDropdownMenuItemCast(onClick: () -> Unit) {
+    PDropdownMenuItem(text = { Text(stringResource(R.string.cast_mode)) }, leadingIcon = {
+        Icon(
+            Icons.Outlined.Cast,
+            contentDescription = stringResource(id = R.string.cast_mode)
+        )
+    }, onClick = onClick)
+}
+
+@Composable
 fun PDropdownMenuItemSort(onClick: () -> Unit) {
     PDropdownMenuItem(text = { Text(stringResource(R.string.sort)) }, leadingIcon = {
         Icon(
@@ -96,6 +112,16 @@ fun PDropdownMenuItemSettings(onClick: () -> Unit) {
         Icon(
             Icons.Outlined.Settings,
             contentDescription = stringResource(id = R.string.settings)
+        )
+    }, onClick = onClick)
+}
+
+@Composable
+fun PDropdownMenuItemCellsPerRow(onClick: () -> Unit) {
+    PDropdownMenuItem(text = { Text(stringResource(R.string.cells_per_row)) }, leadingIcon = {
+        Icon(
+            Icons.Outlined.Grid4x4,
+            contentDescription = stringResource(id = R.string.cells_per_row)
         )
     }, onClick = onClick)
 }

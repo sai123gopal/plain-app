@@ -37,14 +37,14 @@ android {
                 else -> 0
             }
 
-        val vCode = 283
+        val vCode = 310
         versionCode = vCode - singleAbiNum
-        versionName = "1.2.50"
+        versionName = "1.2.59"
 
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters += abiFilterList.ifEmpty {
-                listOf("arm64-v8a", "x86_64")
+                listOf("arm64-v8a")
             }
         }
     }
@@ -71,6 +71,7 @@ android {
             applicationIdSuffix = ".debug"
             isShrinkResources = false
             isMinifyEnabled = false
+            isDebuggable = true
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
             }
@@ -152,28 +153,29 @@ dependencies {
     implementation(platform(libs.compose.bom))
 
     // https://github.com/google/accompanist/releases
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.runtime)
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.foundation)
-    implementation(libs.androidx.foundation.layout)
-    implementation(libs.androidx.material3)
-    implementation(libs.androidx.material.icons.extended)
+    implementation(libs.compose.lifecycle.runtime)
+    implementation(libs.compose.activity)
+    implementation(libs.compose.runtime)
+    implementation(libs.compose.ui)
+    implementation(libs.compose.foundation)
+    implementation(libs.compose.foundation.layout)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.accompanist.drawablepainter)
-//    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.0-alpha12")
-
     // https://developer.android.com/jetpack/androidx/releases/navigation
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.compose.navigation)
 
     releaseImplementation(platform(libs.firebase.bom))
     releaseImplementation(libs.firebase.crashlytics.ktx)
 
     // Media3
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.datasource)
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.session)
-    implementation(libs.androidx.media3.cast)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
+    implementation(libs.media3.cast)
+    implementation(libs.media3.dash)
+    implementation(libs.media3.hls)
 
     implementation(libs.apollo.runtime)
     implementation(libs.apollo.normalized.cache)
@@ -181,17 +183,16 @@ dependencies {
     implementation(libs.apollo.adapters)
 
     implementation(libs.androidx.viewpager2)
-    implementation(libs.androidx.paging.runtime.ktx)
     implementation(libs.androidx.preference.ktx)
 
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.snake.yaml)
 
     // CameraX
-    implementation(libs.androidx.camera.core)
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
@@ -217,7 +218,16 @@ dependencies {
 
     implementation(libs.openai.client)
 
-    implementation(libs.core)
+    // coil: https://coil-kt.github.io/coil/changelog/
+    implementation(libs.coil)
+    implementation(libs.coil.video)
+    implementation(libs.coil.svg)
+    implementation(libs.coil.gif)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.ktor)
+
+    implementation(libs.zxing.core)
+    implementation(libs.paging.runtime)
 
     implementation(libs.androidx.work.runtime.ktx)
 

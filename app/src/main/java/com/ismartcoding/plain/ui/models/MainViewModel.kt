@@ -11,16 +11,15 @@ import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.TempData
-import com.ismartcoding.plain.enums.HttpServerState
-import com.ismartcoding.plain.preference.WebPreference
 import com.ismartcoding.plain.db.DBox
+import com.ismartcoding.plain.enums.HttpServerState
 import com.ismartcoding.plain.features.Permission
 import com.ismartcoding.plain.features.Permissions
 import com.ismartcoding.plain.features.StartHttpServerEvent
 import com.ismartcoding.plain.features.box.BoxHelper
 import com.ismartcoding.plain.features.locale.LocaleHelper
 import com.ismartcoding.plain.helpers.AppHelper
+import com.ismartcoding.plain.preference.WebPreference
 import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.web.HttpServerManager
 import kotlinx.coroutines.Dispatchers
@@ -51,9 +50,7 @@ class MainViewModel(savedStateHandle: SavedStateHandle) : ViewModel() {
         enable: Boolean,
     ) {
         viewModelScope.launch {
-            if (TempData.webEnabled != enable) {
-                withIO { WebPreference.putAsync(context, enable) }
-            }
+            withIO { WebPreference.putAsync(context, enable) }
             if (enable) {
                 val permission = Permission.POST_NOTIFICATIONS
                 if (permission.can(context)) {

@@ -1,5 +1,6 @@
 package com.ismartcoding.plain.ui.page.web
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +42,7 @@ import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.enums.ButtonType
 import com.ismartcoding.plain.enums.PasswordType
 import com.ismartcoding.plain.preference.AuthTwoFactorPreference
+import com.ismartcoding.plain.preference.KeyStorePasswordPreference
 import com.ismartcoding.plain.preference.LocalAuthTwoFactor
 import com.ismartcoding.plain.preference.LocalPassword
 import com.ismartcoding.plain.preference.LocalPasswordType
@@ -48,6 +50,7 @@ import com.ismartcoding.plain.preference.PasswordPreference
 import com.ismartcoding.plain.preference.PasswordTypePreference
 import com.ismartcoding.plain.preference.UrlTokenPreference
 import com.ismartcoding.plain.preference.WebSettingsProvider
+import com.ismartcoding.plain.preference.rememberPreference
 import com.ismartcoding.plain.ui.base.BottomSpace
 import com.ismartcoding.plain.ui.base.ClipboardCard
 import com.ismartcoding.plain.ui.base.PBlockButton
@@ -55,6 +58,7 @@ import com.ismartcoding.plain.ui.base.PCard
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
 import com.ismartcoding.plain.ui.base.PSwitch
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.Subtitle
 import com.ismartcoding.plain.ui.base.Tips
 import com.ismartcoding.plain.ui.base.TopSpace
@@ -73,6 +77,7 @@ fun WebSecurityPage(navController: NavHostController) {
         val password = LocalPassword.current
         val authTwoFactor = LocalAuthTwoFactor.current
         var urlToken by remember { mutableStateOf(TempData.urlToken) }
+        val keyStorePassword by rememberPreference(key = KeyStorePasswordPreference.key, defaultValue = KeyStorePasswordPreference.default)
 
         val editPassword = remember { mutableStateOf("") }
         LaunchedEffect(password) {
@@ -82,8 +87,9 @@ fun WebSecurityPage(navController: NavHostController) {
         }
 
         PScaffold(
-            navController,
-            topBarTitle = stringResource(R.string.security),
+            topBar = {
+                PTopAppBar(navController = navController, title = stringResource(R.string.security))
+            },
             content = {
                 LazyColumn {
                     item {
@@ -92,12 +98,12 @@ fun WebSecurityPage(navController: NavHostController) {
                     item {
                         PCard {
                             PListItem(
-                                title = stringResource(R.string.require_password),
-                                onClick = {
+                                modifier = Modifier.clickable {
                                     scope.launch(Dispatchers.IO) {
                                         PasswordTypePreference.putAsync(context, if (passwordType == PasswordType.NONE.value) PasswordType.FIXED.value else PasswordType.NONE.value)
                                     }
                                 },
+                                title = stringResource(R.string.require_password),
                             ) {
                                 PSwitch(
                                     activated = passwordType != PasswordType.NONE.value,
@@ -138,12 +144,12 @@ fun WebSecurityPage(navController: NavHostController) {
                         VerticalSpace(dp = 16.dp)
                         PCard {
                             PListItem(
-                                title = stringResource(R.string.require_confirmation),
-                                onClick = {
+                                modifier = Modifier.clickable {
                                     scope.launch(Dispatchers.IO) {
                                         AuthTwoFactorPreference.putAsync(context, !authTwoFactor)
                                     }
-                                }
+                                },
+                                title = stringResource(R.string.require_confirmation),
                             ) {
                                 PSwitch(
                                     activated = authTwoFactor,
@@ -164,7 +170,7 @@ fun WebSecurityPage(navController: NavHostController) {
                             stringResource(
                                 id = R.string.https_certificate_signature,
                             ),
-                            HttpServerManager.getSSLSignature(context).joinToString(" ") {
+                            HttpServerManager.getSSLSignature(context, keyStorePassword).joinToString(" ") {
                                 "%02x".format(it).uppercase()
                             },
                         )

@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.database.CursorWindow
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.provider.Settings
 import android.text.SpannableString
@@ -24,30 +25,40 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavHostController
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.ismartcoding.lib.channel.receiveEvent
 import com.ismartcoding.lib.channel.sendEvent
 import com.ismartcoding.lib.extensions.capitalize
 import com.ismartcoding.lib.extensions.dp2px
 import com.ismartcoding.lib.extensions.getSystemScreenTimeout
+import com.ismartcoding.lib.extensions.parcelable
+import com.ismartcoding.lib.extensions.parcelableArrayList
 import com.ismartcoding.lib.extensions.setSystemScreenTimeout
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coIO
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
+import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
+import com.ismartcoding.lib.helpers.JsonHelper
 import com.ismartcoding.lib.isTPlus
 import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.BuildConfig
 import com.ismartcoding.plain.R
-import com.ismartcoding.plain.TempData
+import com.ismartcoding.plain.data.DPlaylistAudio
+import com.ismartcoding.plain.db.DMessageContent
+import com.ismartcoding.plain.db.DMessageText
+import com.ismartcoding.plain.db.DMessageType
 import com.ismartcoding.plain.enums.AppChannelType
 import com.ismartcoding.plain.enums.ExportFileType
 import com.ismartcoding.plain.enums.HttpServerState
 import com.ismartcoding.plain.enums.Language
 import com.ismartcoding.plain.enums.PickFileTag
 import com.ismartcoding.plain.enums.PickFileType
+import com.ismartcoding.plain.features.ChatHelper
 import com.ismartcoding.plain.features.ConfirmToAcceptLoginEvent
 import com.ismartcoding.plain.features.ExportFileEvent
 import com.ismartcoding.plain.features.ExportFileResultEvent
@@ -76,20 +87,28 @@ import com.ismartcoding.plain.preference.ApiPermissionsPreference
 import com.ismartcoding.plain.preference.KeepScreenOnPreference
 import com.ismartcoding.plain.preference.SettingsProvider
 import com.ismartcoding.plain.preference.SystemScreenTimeoutPreference
+import com.ismartcoding.plain.preference.WebPreference
+import com.ismartcoding.plain.receivers.NetworkStateReceiver
 import com.ismartcoding.plain.receivers.PlugInControlReceiver
-import com.ismartcoding.plain.services.NotificationListenerMonitorService
+import com.ismartcoding.plain.services.PNotificationListenerService
 import com.ismartcoding.plain.services.ScreenMirrorService
+import com.ismartcoding.plain.ui.audio.AudioPlayerDialog
+import com.ismartcoding.plain.ui.nav.navigate
+import com.ismartcoding.plain.ui.nav.navigatePdf
 import com.ismartcoding.plain.ui.helpers.DialogHelper
 import com.ismartcoding.plain.ui.helpers.FilePickHelper
 import com.ismartcoding.plain.ui.helpers.WebHelper
 import com.ismartcoding.plain.ui.models.MainViewModel
 import com.ismartcoding.plain.ui.page.Main
+import com.ismartcoding.plain.ui.nav.RouteName
 import com.ismartcoding.plain.web.HttpServerManager
+import com.ismartcoding.plain.web.models.toModel
 import com.ismartcoding.plain.web.websocket.EventType
 import com.ismartcoding.plain.web.websocket.WebSocketEvent
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.close
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
 
@@ -99,6 +118,8 @@ class MainActivity : AppCompatActivity() {
     private var exportFileType = ExportFileType.OPML
     private var requestToConnectDialog: AlertDialog? = null
     private val viewModel: MainViewModel by viewModels()
+    private val navControllerState = mutableStateOf<NavHostController?>(null)
+
     private val screenCapture =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK && result.data != null) {
@@ -163,13 +184,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val plugInReceiver = PlugInControlReceiver()
+    private val networkStateReceiver = NetworkStateReceiver()
 
     @SuppressLint("ClickableViewAccessibility", "DiscouragedPrivateApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-//        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        enableEdgeToEdge()
         lifecycleScope.launch(Dispatchers.IO) {
             Language.initLocaleAsync(this@MainActivity)
         }
@@ -194,13 +216,17 @@ class MainActivity : AppCompatActivity() {
         }
         if (isTPlus()) {
             registerReceiver(plugInReceiver, powerConnectionFilter, RECEIVER_NOT_EXPORTED)
+            registerReceiver(networkStateReceiver, IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION), RECEIVER_NOT_EXPORTED)
         } else {
             registerReceiver(plugInReceiver, powerConnectionFilter)
+            registerReceiver(networkStateReceiver, IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION))
         }
 
         setContent {
             SettingsProvider {
-                Main(viewModel)
+                Main(navControllerState, onLaunched = {
+                    handleIntent(intent)
+                }, viewModel)
             }
         }
 
@@ -212,16 +238,22 @@ class MainActivity : AppCompatActivity() {
                         showTermsAndPrivacyDialog(this@MainActivity)
                     }
                 } else {
-                    if (TempData.webEnabled) {
+                    val webEnabled = WebPreference.getAsync(this@MainActivity)
+                    if (webEnabled) {
                         viewModel.enableHttpServer(this@MainActivity, true)
                     }
-                    PackageHelper.cacheAppLabels()
-                    startService(Intent(this@MainActivity, NotificationListenerMonitorService::class.java))
+                    doWhenReadyAsync()
                 }
             } catch (ex: Exception) {
                 LogCat.e(ex.toString())
             }
         }
+
+    }
+
+    private suspend fun doWhenReadyAsync() {
+        PackageHelper.cacheAppLabels()
+        PNotificationListenerService.toggle(this@MainActivity, Permission.NOTIFICATION_LISTENER.isEnabledAsync(this@MainActivity))
     }
 
     override fun onDestroy() {
@@ -229,6 +261,7 @@ class MainActivity : AppCompatActivity() {
         BluetoothPermission.release()
         Permissions.release()
         unregisterReceiver(plugInReceiver)
+        unregisterReceiver(networkStateReceiver)
     }
 
     @SuppressLint("CheckResult")
@@ -392,8 +425,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("同意并继续") { _, _ ->
                 coIO {
                     AgreeTermsPreference.putAsync(context, true)
-                    PackageHelper.cacheAppLabels()
-                    startService(Intent(this@MainActivity, NotificationListenerMonitorService::class.java))
+                    doWhenReadyAsync()
                 }
             }
             .setNegativeButton("不同意") { _, _ ->
@@ -406,6 +438,87 @@ class MainActivity : AppCompatActivity() {
             movementMethod = LinkMovementMethod.getInstance()
         }, context.dp2px(24), context.dp2px(28), context.dp2px(24), context.dp2px(28))
         dialog.show()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        if (intent.action == Intent.ACTION_VIEW) {
+            val uri = intent.data
+            if (uri != null) {
+                val mimeType = this@MainActivity.contentResolver.getType(uri)
+                if (mimeType != null) {
+                    if (mimeType.startsWith("audio/") ||
+                        setOf("application/ogg", "application/x-ogg", "application/itunes").contains(mimeType)
+                    ) {
+                        AudioPlayerDialog().show()
+                        Permissions.checkNotification(this@MainActivity, R.string.audio_notification_prompt) {
+                            AudioPlayer.play(this@MainActivity, DPlaylistAudio.fromPath(this@MainActivity, uri.toString()))
+                        }
+                    } else if (mimeType.startsWith("text/")) {
+                        TextEditorDialog(uri).show()
+                    } else if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
+//                        val link = uri.toString()
+//                        PreviewDialog().show(
+//                            items = arrayListOf(PreviewItem(link, uri)),
+//                            initKey = link,
+//                        )
+                    } else if (mimeType == "application/pdf") {
+                        navControllerState.value?.navigatePdf(uri)
+                    }
+                }
+            }
+        } else if (intent.action == Intent.ACTION_SEND) {
+            if (intent.type?.startsWith("text/") == true) {
+                val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+                coMain {
+                    val item = withIO {
+                        ChatHelper.sendAsync(DMessageContent(DMessageType.TEXT.value, DMessageText(sharedText)))
+                    }
+                    sendEvent(
+                        WebSocketEvent(
+                            EventType.MESSAGE_CREATED,
+                            JsonHelper.jsonEncode(
+                                arrayListOf(
+                                    item.toModel().apply {
+                                        data = this.getContentData()
+                                    },
+                                ),
+                            ),
+                        ),
+                    )
+                    navControllerState.value?.navigate(RouteName.CHAT)
+                }
+                return
+            }
+
+            val uri = intent.parcelable(Intent.EXTRA_STREAM) as? Uri ?: return
+            DialogHelper.showConfirmDialog("", LocaleHelper.getString(R.string.confirm_to_send_file_to_file_assistant),
+                confirmButton = LocaleHelper.getString(R.string.ok) to {
+                    navControllerState.value?.navigate(RouteName.CHAT)
+                    coIO {
+                        delay(1000)
+                        sendEvent(PickFileResultEvent(PickFileTag.SEND_MESSAGE, PickFileType.FILE, setOf(uri)))
+                    }
+                },
+                dismissButton = LocaleHelper.getString(R.string.cancel) to {})
+        } else if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+            DialogHelper.showConfirmDialog("", LocaleHelper.getString(R.string.confirm_to_send_files_to_file_assistant),
+                confirmButton = LocaleHelper.getString(R.string.ok) to {
+                    val uris = intent.parcelableArrayList<Uri>(Intent.EXTRA_STREAM)
+                    if (uris != null) {
+                        navControllerState.value?.navigate(RouteName.CHAT)
+                        coIO {
+                            delay(1000)
+                            sendEvent(PickFileResultEvent(PickFileTag.SEND_MESSAGE, PickFileType.FILE, uris.toSet()))
+                        }
+                    }
+                },
+                dismissButton = LocaleHelper.getString(R.string.cancel) to {})
+        }
     }
 
     companion object {

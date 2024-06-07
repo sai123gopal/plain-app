@@ -72,7 +72,7 @@ import com.ismartcoding.plain.features.feed.FeedHelper
 import com.ismartcoding.plain.features.feed.fetchContentAsync
 import com.ismartcoding.plain.features.file.FileSortBy
 import com.ismartcoding.plain.features.file.FileSystemHelper
-import com.ismartcoding.plain.features.image.ImageMediaStoreHelper
+import com.ismartcoding.plain.features.ImageMediaStoreHelper
 import com.ismartcoding.plain.features.NoteHelper
 import com.ismartcoding.plain.features.PackageHelper
 import com.ismartcoding.plain.features.sms.SmsMediaStoreHelper
@@ -84,11 +84,13 @@ import com.ismartcoding.plain.helpers.DeviceInfoHelper
 import com.ismartcoding.plain.helpers.ExchangeHelper
 import com.ismartcoding.plain.helpers.FileHelper
 import com.ismartcoding.plain.helpers.TempHelper
+import com.ismartcoding.plain.preference.DeveloperModePreference
 import com.ismartcoding.plain.preference.ScreenMirrorQualityPreference
 import com.ismartcoding.plain.receivers.BatteryReceiver
 import com.ismartcoding.plain.receivers.PlugInControlReceiver
 import com.ismartcoding.plain.services.ScreenMirrorService
 import com.ismartcoding.plain.ui.MainActivity
+import com.ismartcoding.plain.web.loaders.FeedsLoader
 import com.ismartcoding.plain.web.loaders.FileInfoLoader
 import com.ismartcoding.plain.web.loaders.TagsLoader
 import com.ismartcoding.plain.web.models.AIChat
@@ -105,11 +107,13 @@ import com.ismartcoding.plain.web.models.FileInfo
 import com.ismartcoding.plain.web.models.Files
 import com.ismartcoding.plain.web.models.ID
 import com.ismartcoding.plain.web.models.Image
+import com.ismartcoding.plain.web.models.MediaFileInfo
 import com.ismartcoding.plain.web.models.Message
 import com.ismartcoding.plain.web.models.Note
 import com.ismartcoding.plain.web.models.NoteInput
 import com.ismartcoding.plain.web.models.PackageStatus
 import com.ismartcoding.plain.web.models.StorageStats
+import com.ismartcoding.plain.web.models.Tag
 import com.ismartcoding.plain.web.models.TempValue
 import com.ismartcoding.plain.web.models.Video
 import com.ismartcoding.plain.web.models.toModel
@@ -204,7 +208,7 @@ class SXGraphQL(val schema: Schema) {
                                         it.content.value =
                                             DMessageImages(
                                                 c.items.map { i ->
-                                                    DMessageFile(i.uri.toAppUrl(context), i.size, i.duration)
+                                                    DMessageFile(i.id, i.uri.toAppUrl(context), i.size, i.duration, i.width, i.height)
                                                 },
                                             )
                                         dao.update(it)
@@ -215,7 +219,7 @@ class SXGraphQL(val schema: Schema) {
                                         it.content.value =
                                             DMessageFiles(
                                                 c.items.map { i ->
-                                                    DMessageFile(i.uri.toAppUrl(context), i.size, i.duration)
+                                                    DMessageFile(i.id, i.uri.toAppUrl(context), i.size, i.duration, i.width, i.height)
                                                 },
                                             )
                                         dao.update(it)
@@ -517,16 +521,25 @@ class SXGraphQL(val schema: Schema) {
                         val finalPath = path.getFinalPath(context)
                         val file = File(finalPath)
                         val updatedAt = Instant.fromEpochMilliseconds(file.lastModified())
-                        val size = file.length()
-                        val fileInfo = FileInfo(updatedAt, size)
+                        var tags = emptyList<Tag>()
+                        var data: MediaFileInfo? = null
                         if (finalPath.isImageFast()) {
-                            fileInfo.data = FileInfoLoader.loadImage(id.value, finalPath)
+                            if (id.value.isNotEmpty()) {
+                                tags = TagsLoader.load(id.value, DataType.IMAGE)
+                            }
+                            data = FileInfoLoader.loadImage(finalPath)
                         } else if (finalPath.isVideoFast()) {
-                            fileInfo.data = FileInfoLoader.loadVideo(context, id.value, finalPath)
+                            if (id.value.isNotEmpty()) {
+                                tags = TagsLoader.load(id.value, DataType.VIDEO)
+                            }
+                            data = FileInfoLoader.loadVideo(context, finalPath)
                         } else if (finalPath.isAudioFast()) {
-                            fileInfo.data = FileInfoLoader.loadAudio(context, id.value, finalPath)
+                            if (id.value.isNotEmpty()) {
+                                tags = TagsLoader.load(id.value, DataType.AUDIO)
+                            }
+                            data = FileInfoLoader.loadAudio(context, finalPath)
                         }
-                        fileInfo
+                        FileInfo(path, updatedAt, size = file.length(), tags, data)
                     }
                 }
                 query("boxes") {
@@ -542,6 +555,11 @@ class SXGraphQL(val schema: Schema) {
                             it.count = tagCountMap[it.id] ?: 0
                             it.toModel()
                         }
+                    }
+                }
+                query("tagRelations") {
+                    resolver { type: DataType, keys: List<String> ->
+                        TagHelper.getTagRelationsByKeys(keys.toSet(), type).map { it.toModel() }
                     }
                 }
                 query("notifications") {
@@ -570,6 +588,12 @@ class SXGraphQL(val schema: Schema) {
                             prepare { item -> item.id.value }
                             loader { ids ->
                                 TagsLoader.load(ids, DataType.FEED_ENTRY)
+                            }
+                        }
+                        dataProperty("feed") {
+                            prepare { item -> item.feedId }
+                            loader { ids ->
+                                FeedsLoader.load(ids)
                             }
                         }
                     }
@@ -657,6 +681,7 @@ class SXGraphQL(val schema: Schema) {
                             usbDiskPaths = FileSystemHelper.getUsbDiskPaths(),
                             internalStoragePath = FileSystemHelper.getInternalStoragePath(),
                             downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath,
+                            developerMode = DeveloperModePreference.getAsync(context),
                         )
                     }
                 }
@@ -949,12 +974,12 @@ class SXGraphQL(val schema: Schema) {
                 }
                 mutation("saveNote") {
                     resolver { id: ID, input: NoteInput ->
-                        val newId =
+                        val item =
                             NoteHelper.addOrUpdateAsync(id.value) {
                                 title = input.title
                                 content = input.content
                             }
-                        NoteHelper.getById(newId)?.toModel()
+                        NoteHelper.getById(item.id)?.toModel()
                     }
                 }
                 mutation("trashNotes") {

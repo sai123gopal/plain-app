@@ -13,7 +13,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.TempData
 import com.ismartcoding.plain.preference.HttpsPreference
@@ -47,7 +46,8 @@ fun WebAddress(
     VerticalSpace(dp = 16.dp)
     HorizontalPager(
         modifier = Modifier.padding(horizontal = 16.dp),
-        state = pagerState
+        state = pagerState,
+        pageSpacing = 16.dp,
     ) { page ->
         Column {
             val isHttps = page != 0

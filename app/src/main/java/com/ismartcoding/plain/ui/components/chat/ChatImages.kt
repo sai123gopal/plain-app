@@ -18,33 +18,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
-import coil.size.Size
+import com.ismartcoding.lib.extensions.formatBytes
+import com.ismartcoding.lib.extensions.formatDuration
 import com.ismartcoding.lib.extensions.getFinalPath
-import com.ismartcoding.lib.extensions.pathToUri
-import com.ismartcoding.plain.helpers.FormatHelper
+import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
+import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.plain.db.DMessageImages
-import com.ismartcoding.plain.ui.base.PAsyncImage
-import com.ismartcoding.plain.ui.models.SharedViewModel
+import com.ismartcoding.plain.helpers.FormatHelper
+import com.ismartcoding.plain.ui.components.mediaviewer.previewer.MediaPreviewerState
+import com.ismartcoding.plain.ui.components.mediaviewer.previewer.TransformImageView
+import com.ismartcoding.plain.ui.components.mediaviewer.previewer.rememberTransformItemState
+import com.ismartcoding.plain.ui.models.MediaPreviewData
 import com.ismartcoding.plain.ui.models.VChat
-import com.ismartcoding.plain.ui.preview.PreviewDialog
-import com.ismartcoding.plain.ui.preview.PreviewItem
-import com.ismartcoding.plain.ui.theme.PlainTheme
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatImages(
     context: Context,
-    navController: NavHostController,
-    sharedViewModel: SharedViewModel,
+    items: List<VChat>,
     m: VChat,
     imageWidthDp: Dp,
     imageWidthPx: Int,
+    previewerState: MediaPreviewerState,
 ) {
+    val imageItems = (m.value as DMessageImages).items
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     FlowRow(
         modifier =
         Modifier
@@ -54,33 +57,30 @@ fun ChatImages(
         horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Top),
         content = {
-            val imageItems = (m.value as DMessageImages).items
-            imageItems.forEachIndexed { index, item ->
-                val path = item.uri.getFinalPath(context)
+            imageItems.forEach { item ->
+                val itemState = rememberTransformItemState()
                 Box(
                     modifier =
                     Modifier.clickable {
-                        val items = imageItems.mapIndexed { i, s ->
-                            val p = s.uri.getFinalPath(context)
-                            PreviewItem(m.id + "|" + i, p.pathToUri(), p)
+                        coMain {
+                            keyboardController?.hide()
+                            withIO { MediaPreviewData.setDataAsync(context, itemState, items.reversed(), item) }
+                            previewerState.openTransform(
+                                index = MediaPreviewData.items.indexOfFirst { it.id == item.id },
+                                itemState = itemState,
+                            )
                         }
-                        PreviewDialog().show(
-                            items = items,
-                            initKey = m.id + "|" + index,
-                        )
-//                        sharedViewModel.previewItems.value = items
-//                        sharedViewModel.previewKey.value = m.id + "|" + index
-//                        sharedViewModel.previewIndex.value = index
-//                        navController.navigate(RouteName.MEDIA_PREVIEW)
                     },
                 ) {
-                    PAsyncImage(
+                    TransformImageView(
                         modifier = Modifier
                             .size(imageWidthDp)
                             .clip(RoundedCornerShape(6.dp)),
-                        data = path,
-                        size = Size(imageWidthPx, imageWidthPx),
-                        contentScale = ContentScale.Crop,
+                        path = item.uri.getFinalPath(context),
+                        key = item.id,
+                        itemState = itemState,
+                        previewerState = previewerState,
+                        widthPx = imageWidthPx
                     )
                     Box(
                         modifier =
@@ -95,11 +95,9 @@ fun ChatImages(
                                 .padding(horizontal = 4.dp, vertical = 2.dp),
                             text =
                             if (item.duration > 0) {
-                                FormatHelper.formatDuration(
-                                    item.duration,
-                                )
+                                item.duration.formatDuration()
                             } else {
-                                FormatHelper.formatBytes(item.size)
+                                item.size.formatBytes()
                             },
                             color = Color.White,
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal),

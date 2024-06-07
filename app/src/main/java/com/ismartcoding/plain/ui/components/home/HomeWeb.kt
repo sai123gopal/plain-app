@@ -2,6 +2,7 @@ package com.ismartcoding.plain.ui.components.home
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,10 +19,10 @@ import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PMainSwitch
 import com.ismartcoding.plain.ui.base.VerticalSpace
 import com.ismartcoding.plain.ui.components.WebAddress
-import com.ismartcoding.plain.ui.extensions.navigate
+import com.ismartcoding.plain.ui.nav.navigate
 import com.ismartcoding.plain.ui.models.MainViewModel
 import com.ismartcoding.plain.ui.models.VClickText
-import com.ismartcoding.plain.ui.page.RouteName
+import com.ismartcoding.plain.ui.nav.RouteName
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -35,11 +36,11 @@ fun HomeWeb(
     val fullText = (stringResource(id = R.string.web_console_desc) + " " + learnMore)
     PCard {
         PListItem(
+            modifier = Modifier.clickable {
+                navController.navigate(RouteName.WEB_SETTINGS)
+            },
             title = stringResource(R.string.web_console),
             showMore = true,
-            onClick = {
-                navController.navigate(RouteName.WEB_SETTINGS)
-            }
         )
         VerticalSpace(dp = 8.dp)
         PClickableText(

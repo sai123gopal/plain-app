@@ -1,5 +1,7 @@
 package com.ismartcoding.plain.ui.page.tools
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
@@ -46,7 +48,7 @@ import kotlinx.coroutines.launch
 
 data class RateItem(val rate: DExchangeRate, val value: Double)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ExchangeRatePage(navController: NavHostController) {
     ExchangeRateProvider {
@@ -85,27 +87,28 @@ fun ExchangeRatePage(navController: NavHostController) {
         }
 
         PScaffold(
-            navController,
-            actions = {
-                if (rateItems != null) {
-                    PIconButton(
-                        icon = Icons.Outlined.Add,
-                        contentDescription = stringResource(R.string.add),
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        onClick = {
-                            SelectCurrencyDialog { rate ->
-                                scope.launch {
-                                    val selected = config.selected
-                                    if (!selected.contains(rate.currency)) {
-                                        selected.add(rate.currency)
-                                        withIO { ExchangeRatePreference.putAsync(context, config) }
-                                        updatedTs = System.currentTimeMillis()
+            topBar = {
+                PTopAppBar(navController = navController, title = "", actions = {
+                    if (rateItems != null) {
+                        PIconButton(
+                            icon = Icons.Outlined.Add,
+                            contentDescription = stringResource(R.string.add),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            onClick = {
+                                SelectCurrencyDialog { rate ->
+                                    scope.launch {
+                                        val selected = config.selected
+                                        if (!selected.contains(rate.currency)) {
+                                            selected.add(rate.currency)
+                                            withIO { ExchangeRatePreference.putAsync(context, config) }
+                                            updatedTs = System.currentTimeMillis()
+                                        }
                                     }
-                                }
-                            }.show()
-                        },
-                    )
-                }
+                                }.show()
+                            },
+                        )
+                    }
+                })
             },
             content = {
                 PullToRefresh(refreshLayoutState = refreshState) {
@@ -125,28 +128,27 @@ fun ExchangeRatePage(navController: NavHostController) {
                             rateItems?.forEach { rate ->
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     PListItem(
-                                        title = rate.rate.currency,
-                                        value = FormatHelper.formatMoney(rate.value, rate.rate.currency),
-                                        icon =
-                                            painterResource(
-                                                id = ResourceHelper.getCurrencyFlagResId(context, rate.rate.currency),
-                                            ),
-                                        onLongClick = {
-                                            selectedItem = rate.rate
-                                            showContextMenu.value = true
-                                        },
-                                        onClick = {
+                                        modifier = Modifier.combinedClickable(onClick = {
                                             selectedItem = rate.rate
                                             editValue = FormatHelper.formatDouble(rate.value, isGroupingUsed = false)
                                             editValueDialogVisible = true
-                                        },
+                                        }, onLongClick = {
+                                            selectedItem = rate.rate
+                                            showContextMenu.value = true
+                                        }),
+                                        title = rate.rate.currency,
+                                        value = FormatHelper.formatMoney(rate.value, rate.rate.currency),
+                                        icon =
+                                        painterResource(
+                                            id = ResourceHelper.getCurrencyFlagResId(context, rate.rate.currency),
+                                        ),
                                     )
                                     Box(
                                         modifier =
-                                            Modifier
-                                                .fillMaxSize()
-                                                .padding(top = 32.dp)
-                                                .wrapContentSize(Alignment.Center),
+                                        Modifier
+                                            .fillMaxSize()
+                                            .padding(top = 32.dp)
+                                            .wrapContentSize(Alignment.Center),
                                     ) {
                                         PDropdownMenu(
                                             expanded = showContextMenu.value && selectedItem == rate.rate,

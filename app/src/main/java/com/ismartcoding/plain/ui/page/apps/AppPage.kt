@@ -2,7 +2,6 @@ package com.ismartcoding.plain.ui.page.apps
 
 
 import android.annotation.SuppressLint
-import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,6 +39,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavHostController
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.ismartcoding.lib.apk.ApkParsers
+import com.ismartcoding.lib.extensions.formatBytes
 import com.ismartcoding.lib.helpers.CoroutinesHelper.coMain
 import com.ismartcoding.lib.helpers.CoroutinesHelper.withIO
 import com.ismartcoding.plain.helpers.ShareHelper
@@ -48,7 +48,6 @@ import com.ismartcoding.plain.extensions.formatDateTime
 import com.ismartcoding.plain.features.locale.LocaleHelper
 import com.ismartcoding.plain.data.DPackageDetail
 import com.ismartcoding.plain.features.PackageHelper
-import com.ismartcoding.plain.helpers.FormatHelper
 import com.ismartcoding.plain.packageManager
 import com.ismartcoding.plain.ui.base.BottomSpace
 import com.ismartcoding.plain.ui.base.GroupButton
@@ -59,10 +58,10 @@ import com.ismartcoding.plain.ui.base.PIconButton
 import com.ismartcoding.plain.ui.base.PIconTextActionButton
 import com.ismartcoding.plain.ui.base.PListItem
 import com.ismartcoding.plain.ui.base.PScaffold
-import com.ismartcoding.plain.ui.base.Subtitle
+import com.ismartcoding.plain.ui.base.PTopAppBar
 import com.ismartcoding.plain.ui.base.VerticalSpace
 import com.ismartcoding.plain.ui.base.rememberLifecycleEvent
-import com.ismartcoding.plain.ui.extensions.navigateText
+import com.ismartcoding.plain.ui.nav.navigateText
 import com.ismartcoding.plain.ui.helpers.DialogHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -144,16 +143,20 @@ fun AppPage(
     }
 
     PScaffold(
-        navController,
-        topBarTitle = item?.name ?: "",
-        actions = {
-            PIconButton(
-                icon = Icons.Outlined.Share,
-                contentDescription = stringResource(R.string.share),
-                tint = MaterialTheme.colorScheme.onSurface,
-            ) {
-                ShareHelper.shareFile(context, File(item?.path ?: ""))
-            }
+        topBar = {
+            PTopAppBar(
+                navController = navController,
+                title = item?.name ?: "",
+                actions = {
+                    PIconButton(
+                        icon = Icons.Outlined.Share,
+                        contentDescription = stringResource(R.string.share),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    ) {
+                        ShareHelper.shareFile(context, File(item?.path ?: ""))
+                    }
+                },
+            )
         },
         content = {
             if (item == null) {
@@ -236,10 +239,6 @@ fun AppPage(
                 }
                 item {
                     VerticalSpace(dp = 16.dp)
-                    Subtitle(
-                        text = stringResource(R.string.paths_directories),
-                    )
-
                     PCard {
                         PListItem(
                             title = stringResource(R.string.source_directory),
@@ -256,7 +255,7 @@ fun AppPage(
                     PCard {
                         PListItem(
                             title = stringResource(R.string.app_size),
-                            value = FormatHelper.formatBytes(item?.size ?: 0),
+                            value = (item?.size ?: 0).formatBytes(),
                         )
                         PListItem(
                             title = "SDK",

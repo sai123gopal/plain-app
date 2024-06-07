@@ -87,24 +87,15 @@ dependencies {
     api(libs.ktor.client.logging)
 
     api(libs.markwon.core)
-    api(libs.html)
-    api(libs.ext.strikethrough)
-    api(libs.ext.tasklist)
-    api(libs.ext.tables)
-    api(libs.ext.latex)
-    api(libs.linkify)
-    api(libs.image.glide)
-    //api("com.caverock:androidsvg:1.4")
+    api(libs.markwon.html)
+    api(libs.markwon.strikethrough)
+    api(libs.markwon.tasklist)
+    api(libs.markwon.tables)
+    api(libs.markwon.latex)
+    api(libs.markwon.linkify)
     api(libs.androidsvg.aar)
-
+    api(libs.okhttp)
     implementation(libs.android.gif.drawable)
-
-    // https://coil-kt.github.io/coil/changelog/
-    api(libs.coil)
-    api(libs.coil.compose)
-    api(libs.coil.svg)
-    api(libs.coil.gif)
-    api(libs.coil.video)
 
     api(libs.jsoup)
 

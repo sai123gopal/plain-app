@@ -25,11 +25,9 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.size.Size
-import com.ismartcoding.lib.extensions.dp2px
+import coil3.compose.AsyncImage
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.ui.theme.palette.LocalTonalPalettes
 import com.ismartcoding.plain.ui.theme.palette.onDark
@@ -45,21 +43,12 @@ fun PListItem(
     icon: Any? = null,
     separatedActions: Boolean = false,
     showMore: Boolean = false,
-    onClick: () -> Unit = { },
-    onLongClick: (() -> Unit)? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
     val tonalPalettes = LocalTonalPalettes.current
-    val context = LocalContext.current
-
     Surface(
         modifier =
         modifier
-            .combinedClickable(
-                enabled = enable,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
             .alpha(if (enable) 1f else 0.5f),
         color = Color.Unspecified,
     ) {
@@ -88,12 +77,11 @@ fun PListItem(
                         contentDescription = title,
                     )
                 } else if (icon is String) {
-                    PAsyncImage(
+                    AsyncImage(
+                        model = icon,
                         contentDescription = title,
                         modifier = Modifier
                             .size(24.dp),
-                        data = icon,
-                        size = Size(context.dp2px(24), context.dp2px(24)),
                     )
                     HorizontalSpace(dp = 16.dp)
                 }
