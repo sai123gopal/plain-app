@@ -264,6 +264,11 @@ object DeveloperModePreference : BasePreference<Boolean>() {
     override val key = booleanPreferencesKey("developer_mode")
 }
 
+object DeviceNamePreference : BasePreference<String>() {
+    override val default = ""
+    override val key = stringPreferencesKey("device_name")
+}
+
 object HttpsPreference : BasePreference<Boolean>() {
     override val default = false
     override val key = booleanPreferencesKey("https")
@@ -351,6 +356,10 @@ object KeyStorePasswordPreference : BasePreference<String>() {
             password = StringHelper.shortUUID()
             putAsync(context, password)
         }
+    }
+
+    suspend fun resetAsync(context: Context) {
+        putAsync(context, StringHelper.shortUUID())
     }
 }
 

@@ -12,7 +12,6 @@ import com.ismartcoding.lib.extensions.getFinalPath
 import com.ismartcoding.lib.extensions.isImageFast
 import com.ismartcoding.lib.extensions.isUrl
 import com.ismartcoding.lib.extensions.newFile
-import com.ismartcoding.lib.extensions.parse
 import com.ismartcoding.lib.extensions.scanFileByConnection
 import com.ismartcoding.lib.extensions.toThumbBytesAsync
 import com.ismartcoding.lib.extensions.urlEncode
@@ -35,12 +34,12 @@ import com.ismartcoding.plain.enums.DataType
 import com.ismartcoding.plain.enums.ImageType
 import com.ismartcoding.plain.enums.PasswordType
 import com.ismartcoding.plain.features.ConfirmToAcceptLoginEvent
-import com.ismartcoding.plain.features.ImageMediaStoreHelper
 import com.ismartcoding.plain.features.PackageHelper
-import com.ismartcoding.plain.features.audio.AudioMediaStoreHelper
 import com.ismartcoding.plain.features.file.FileSortBy
+import com.ismartcoding.plain.features.media.AudioMediaStoreHelper
 import com.ismartcoding.plain.features.media.CastPlayer
-import com.ismartcoding.plain.features.video.VideoMediaStoreHelper
+import com.ismartcoding.plain.features.media.ImageMediaStoreHelper
+import com.ismartcoding.plain.features.media.VideoMediaStoreHelper
 import com.ismartcoding.plain.helpers.ImageHelper
 import com.ismartcoding.plain.helpers.TempHelper
 import com.ismartcoding.plain.helpers.UrlHelper
@@ -60,7 +59,6 @@ import io.ktor.http.content.EntityTagVersion
 import io.ktor.http.content.LastModifiedVersion
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
-import io.ktor.http.content.streamProvider
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -104,7 +102,6 @@ import io.ktor.websocket.send
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -305,19 +302,19 @@ object HttpModule {
                     val context = MainApp.instance
                     when (type) {
                         DataType.PACKAGE.name -> {
-                            paths = PackageHelper.search(q, Int.MAX_VALUE, 0, FileSortBy.NAME_ASC).map { DownloadFileItem(it.path, "${it.name.replace(" ", "")}-${it.id}.apk") }
+                            paths = PackageHelper.searchAsync(q, Int.MAX_VALUE, 0, FileSortBy.NAME_ASC).map { DownloadFileItem(it.path, "${it.name.replace(" ", "")}-${it.id}.apk") }
                         }
 
                         DataType.VIDEO.name -> {
-                            paths = VideoMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = VideoMediaStoreHelper.searchAsync(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.AUDIO.name -> {
-                            paths = AudioMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = AudioMediaStoreHelper.searchAsync(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.IMAGE.name -> {
-                            paths = ImageMediaStoreHelper.search(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
+                            paths = ImageMediaStoreHelper.searchAsync(context, q, Int.MAX_VALUE, 0, FileSortBy.DATE_DESC).map { DownloadFileItem(it.path, "") }
                         }
 
                         DataType.FILE.name -> {
@@ -329,7 +326,7 @@ object HttpModule {
                                 return@get
                             }
 
-                            paths = JSONArray(value).parse { DownloadFileItem(it.optString("path"), it.optString("name")) }
+                            paths = jsonDecode<List<DownloadFileItem>>(value)
                         }
                     }
 
@@ -371,7 +368,16 @@ object HttpModule {
                 }
                 try {
                     val context = MainApp.instance
-                    val path = UrlHelper.decrypt(id).getFinalPath(context)
+                    val decryptedId = UrlHelper.decrypt(id).getFinalPath(context)
+                    var path: String
+                    var mediaId = ""
+                    if (decryptedId.startsWith("{")) {
+                        val json = JSONObject(decryptedId)
+                        path = json.optString("path")
+                        mediaId = json.optString("mediaId")
+                    } else {
+                        path = decryptedId
+                    }
                     if (path.startsWith("content://")) {
                         val bytes = withIO { context.contentResolver.openInputStream(Uri.parse(path))?.buffered()?.use { it.readBytes() } }
                         if (bytes != null) {
@@ -395,6 +401,10 @@ object HttpModule {
                             call.respond(HttpStatusCode.NotFound)
                             return@get
                         }
+                        if (file.isDirectory) {
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@get
+                        }
 
                         val fileName = (q["name"] ?: file.name).urlEncode().replace("+", "%20")
                         if (q["dl"] == "1") {
@@ -416,7 +426,7 @@ object HttpModule {
                         val centerCrop = q["cc"]?.toBooleanStrictOrNull() ?: true
                         // get video/image thumbnail
                         if (w != null && h != null) {
-                            val bytes = withIO { file.toThumbBytesAsync(MainApp.instance, w, h, centerCrop) }
+                            val bytes = withIO { file.toThumbBytesAsync(MainApp.instance, w, h, centerCrop, mediaId) }
                             if (bytes != null) {
                                 call.respondBytes(bytes)
                             }

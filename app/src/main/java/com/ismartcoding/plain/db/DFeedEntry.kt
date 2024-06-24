@@ -36,9 +36,7 @@ data class DFeedEntry(
 
     @ColumnInfo(name = "read")
     var read: Boolean = false
-//
-//    @ColumnInfo(name = "deleted_at")
-//    var deletedAt: Instant? = null
+
     fun getSummary(): String {
         return description.getSummary()
     }

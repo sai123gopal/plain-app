@@ -21,12 +21,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 fun File.getDirectChildrenCount(countHiddenItems: Boolean): Int {
-    return listFiles()?.filter {
-        if (countHiddenItems) {
-            true
-        } else {
-            !it.name.startsWith('.')
-        }
+    if (countHiddenItems) {
+        return list()?.size ?: 0
+    }
+    return list()?.filter {
+        !it.startsWith('.')
     }?.size ?: 0
 }
 
@@ -72,7 +71,7 @@ fun File.getBitmapAsync(
 
     var bitmap: Bitmap? = null
     if (isQPlus() && this.path.isVideoFast()) {
-        val contentUri = if (mediaId.isNotEmpty()) context.getMediaContentUri(path, mediaId) else context.getMediaContentUri(path)
+        val contentUri = if (mediaId.isNotEmpty()) path.pathToMediaStoreUri(mediaId) else context.contentResolver.getMediaContentUri(path)
         if (contentUri != null) {
             try {
                 bitmap = context.contentResolver.loadThumbnail(contentUri, Size(width, height), null)
@@ -131,8 +130,9 @@ fun File.toThumbBytesAsync(
     width: Int,
     height: Int,
     centerCrop: Boolean,
+    mediaId: String
 ): ByteArray? {
-    val bitmap = getBitmapAsync(context, width, height, centerCrop) ?: return null
+    val bitmap = getBitmapAsync(context, width, height, centerCrop, mediaId) ?: return null
     val stream = ByteArrayOutputStream()
     bitmap.compress(80, stream)
     return stream.toByteArray()

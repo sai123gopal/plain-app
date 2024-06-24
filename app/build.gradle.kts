@@ -9,10 +9,15 @@ plugins {
     id("com.google.firebase.crashlytics")
     id("com.apollographql.apollo3") version "3.2.1"
     id("kotlin-parcelize")
+    id("androidx.room")
     id("com.google.devtools.ksp")
     kotlin("android")
     kotlin("kapt")
     kotlin("plugin.serialization") version "1.9.23"
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 val keystoreProperties = Properties()
@@ -37,9 +42,9 @@ android {
                 else -> 0
             }
 
-        val vCode = 310
+        val vCode = 313
         versionCode = vCode - singleAbiNum
-        versionName = "1.2.59"
+        versionName = "1.3.0"
 
         ndk {
             //noinspection ChromeOsAbiSupport
