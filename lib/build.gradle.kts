@@ -79,7 +79,6 @@ dependencies {
     // https://github.com/davemorrissey/subsampling-scale-image-view
     api(libs.subsampling.scale.image.view.androidx)
 
-    implementation(libs.ahocorasick) // For pinyin
     implementation(libs.bcprov.jdk15on)
     implementation(libs.bcpkix.jdk15on)
     api(libs.ktor.client.core)
@@ -93,7 +92,6 @@ dependencies {
     api(libs.markwon.tables)
     api(libs.markwon.latex)
     api(libs.markwon.linkify)
-    api(libs.androidsvg.aar)
     api(libs.okhttp)
     implementation(libs.android.gif.drawable)
 

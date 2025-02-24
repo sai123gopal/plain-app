@@ -129,7 +129,7 @@ object FileMediaStoreHelper : BaseContentHelper() {
         return counts
     }
 
-    fun getIdByPathAsync(context: Context, path: String): String? {
+    private fun getIdByPathAsync(context: Context, path: String): String? {
         return context.contentResolver
             .queryCursor(uriExternal, arrayOf(MediaStore.Files.FileColumns._ID), "${MediaStore.Files.FileColumns.DATA} = ?", arrayOf(path))?.find { cursor, cache ->
                 cursor.getStringValue(MediaStore.Files.FileColumns._ID, cache)
@@ -207,13 +207,15 @@ object FileMediaStoreHelper : BaseContentHelper() {
         return items.sorted(sortBy)
     }
 
-    suspend fun getRecentFilesAsync(context: Context, query: String): List<DFile> {
+    suspend fun getRecentFilesAsync(context: Context): List<DFile> {
+        val where = ContentWhere()
+        where.addNotEqual(MediaStore.Files.FileColumns.MIME_TYPE,  "vnd.android.document/directory")
         return context.contentResolver.getPagingCursor(
-            uriExternal, getProjection(), buildWhereAsync(query),
+            uriExternal, getProjection(), where,
             100, 0, FileSortBy.DATE_DESC.toFileSortBy()
         )?.map { cursor, cache ->
             cursorToFile(cursor, cache)
-        }?.filter { !it.isDir }?.take(50) ?: emptyList()
+        } ?: emptyList()
     }
 
     private fun cursorToFile(cursor: Cursor, cache: MutableMap<String, Int>): DFile {
@@ -232,7 +234,7 @@ object FileMediaStoreHelper : BaseContentHelper() {
             createdAt,
             updatedAt,
             size,
-            mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_NONE && mimeType == null && size == 0L,
+            mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_NONE && (mimeType == null || mimeType == "vnd.android.document/directory"),
             0,
             id
         )
